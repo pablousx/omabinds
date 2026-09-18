@@ -1,0 +1,9 @@
+PASS: F20 app, F21 command, F22 alias committed and verified by live compositor
+PASS: original SUPER+V remains effective
+PASS: F21 registered callable executed the custom command
+PASS: F20 registered callable launches a catalog-discovered .desktop application (Obsidian not installed)
+PASS: live F22 alias callable is identical to original SUPER+V callable
+PASS: conflict names the existing clipboard action before mutation
+PASS: disable and restore mapping
+PASS: mappings persist through independent compositor reload
+PASS: initial managed state and all original bindings restored
