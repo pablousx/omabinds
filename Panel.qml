@@ -23,6 +23,7 @@ Ui.Panel {
     property var catalog: []
     property var applications: []
     property var commands: []
+    property var setupStatus: ({lua:false, launcher:false, ready:false})
     property string message: ""
     property bool failed: false
     property var draft: null
@@ -40,7 +41,10 @@ Ui.Panel {
     property var request: ({})
     property string lastOperation: ""
     readonly property bool busy: worker.running
+    readonly property bool setupRequired: !previewMode && !setupStatus.ready
     readonly property string backendPath: Qt.resolvedUrl("backend/omabinds.py").toString().replace(/^file:\/\//, "")
+    readonly property string setupScriptPath: Qt.resolvedUrl("scripts/install.sh").toString().replace(/^file:\/\//, "")
+    readonly property string setupTerminalCommand: "bash " + JSON.stringify(setupScriptPath) + "; setup_status=$?; printf '\\nSetup finished with status %s.\\n' \"$setup_status\"; read -r -p 'Press Enter to return to omabinds...' _; exit \"$setup_status\"
     readonly property var rows: {
         var all = configState.mappings.map(function(m) { return {managed:true, name:m.name, trigger:m.trigger, enabled:m.enabled, action:m.action, mapping:m} })
         if (category === "All" || category === "System")
@@ -75,6 +79,12 @@ Ui.Panel {
         failed = false; message = ""
         worker.running = true
     }
+    function setup() {
+        if (setupTerminal.running) return
+        failed=false
+        message="Setup opened in an Omarchy terminal. Return here and press Refresh status when it finishes."
+        setupTerminal.running=true
+    }
     function open(payload) {
         root.controller.show()
         var args = {}; try { args = JSON.parse(payload || "{}") } catch(e) {}
@@ -89,7 +99,7 @@ Ui.Panel {
             catalog = [{id:"|SUPER + V",name:"Clipboard",trigger:"SUPER + V",supported:true,signature:"demo",submap:""}]
             message = "Preview · sample data; changes are disabled"
         } else call("snapshot")
-        Qt.callLater(function() { search.forceActiveFocus() })
+        Qt.callLater(function() { root.setupRequired ? setupButton.forceActiveFocus() : search.forceActiveFocus() })
     }
     function close() { root.controller.hide(); capturing = false }
     function capturePreview(path) {
@@ -191,8 +201,9 @@ Ui.Panel {
                     if (result.state && result.revision) {
                         root.configState=result.state;root.revision=result.revision
                         root.catalog=result.catalog.bindings;root.applications=result.apps;root.commands=result.commands || []
+                        if (result.setup) root.setupStatus=result.setup
                         if (root.lastOperation === "commit") {root.draft=null;root.conflicts=[]}
-                        if (!result.installed) root.message="Install the integration with scripts/install.sh to save keybinds."
+                        if (!result.installed && !root.setupRequired) root.message="Install the integration with scripts/install.sh to save keybinds."
                         if (result.catalog.warnings.length) {root.failed=true;root.message=result.catalog.warnings.join("\n")}
                     }
                     if (result.message) root.message=result.message
@@ -204,6 +215,16 @@ Ui.Panel {
         }
         stderr: StdioCollector { onStreamFinished: if(text.trim()) {root.failed=true;root.message=text.trim()} }
         onRunningChanged: if (!running) stdinEnabled=true
+    }
+    Process {
+        id: setupTerminal
+        command: ["omarchy", "launch", "terminal", "bash", "-lc", root.setupTerminalCommand]
+        onExited: function(exitCode) {
+            if (exitCode !== 0) {
+                root.failed=true
+                root.message="Could not open the Omarchy setup terminal (exit code " + exitCode + ")."
+            }
+        }
     }
     Ui.KeyboardPanel {
         id: window
@@ -228,7 +249,9 @@ Ui.Panel {
                 if(event.key===Qt.Key_F && (event.modifiers & Qt.ControlModifier)) {search.forceActiveFocus();event.accepted=true}
             }
             ColumnLayout {
+                id: mainContent
                 anchors.fill:parent;anchors.bottomMargin:28;spacing:16
+                visible:!root.setupRequired
                 enabled: !root.busy && root.conflicts.length===0 && root.confirmKind===""
                 RowLayout {
                     Layout.fillWidth:true
@@ -398,14 +421,48 @@ Ui.Panel {
                     Ui.Button {text:"Reset";focusable:true;enabled:!root.busy;onClicked:{root.confirmKind="reset";root.confirmText="Remove all custom omabinds keybinds? System bindings will be restored."}}
                 }
             }
+            ColumnLayout {
+                id: setupContent
+                anchors.fill:parent;anchors.bottomMargin:28
+                visible:root.setupRequired
+                spacing:18
+                Item {Layout.fillHeight:true}
+                Text {
+                    Layout.fillWidth:true;text:"Finish setting up omabinds";color:Color.foreground
+                    font.family:Style.font.family;font.pixelSize:26;font.bold:true
+                }
+                Text {
+                    Layout.fillWidth:true;wrapMode:Text.Wrap
+                    text:"omabinds needs its Hyprland Lua integration and launcher before it can manage shortcuts. Open the setup terminal to install both; your existing configuration is backed up and validated."
+                    color:Color.foreground;font.family:Style.font.family;font.pixelSize:14
+                }
+                ColumnLayout {
+                    Layout.fillWidth:true;spacing:8
+                    Text {Layout.fillWidth:true;text:(root.setupStatus.lua ? "✓" : "○") + " Hyprland Lua integration";color:root.setupStatus.lua?Color.accent:Color.muted;font.family:Style.font.family;font.pixelSize:13}
+                    Text {Layout.fillWidth:true;text:(root.setupStatus.launcher ? "✓" : "○") + " Application launcher";color:root.setupStatus.launcher?Color.accent:Color.muted;font.family:Style.font.family;font.pixelSize:13}
+                }
+                Ui.Button {
+                    id:setupButton;Layout.alignment:Qt.AlignLeft;text:setupTerminal.running?"Opening terminal…":"Open setup terminal"
+                    focusable:true;bordered:true;enabled:!root.busy;onClicked:root.setup()
+                }
+                Ui.Button {
+                    Layout.alignment:Qt.AlignLeft;text:"Refresh status";focusable:true;enabled:!root.busy;onClicked:root.call("snapshot")
+                }
+                Text {
+                    Layout.fillWidth:true;wrapMode:Text.Wrap
+                    text:"The terminal will run: " + root.setupTerminalCommand.split(";")[0]
+                    color:Color.muted;font.family:Style.font.family;font.pixelSize:11
+                }
+                Item {Layout.fillHeight:true}
+            }
             Text {
                 anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom
-                height:18;visible:root.message!=="";text:root.message;textFormat:Text.PlainText
+                height:18;visible:root.message!=="" && (root.setupRequired || !mainContent.visible);text:root.message;textFormat:Text.PlainText
                 verticalAlignment:Text.AlignVCenter;elide:Text.ElideRight
                 color:root.failed?Color.urgent:Color.accent;font.family:Style.font.family;font.pixelSize:12
             }
             Rectangle {
-                anchors.fill:parent;visible:root.conflicts.length>0 || root.confirmKind!=="";color:Qt.rgba(0,0,0,0.85)
+                anchors.fill:parent;visible:!root.setupRequired && (root.conflicts.length>0 || root.confirmKind!=="");color:Qt.rgba(0,0,0,0.85)
                 onVisibleChanged:if(visible)Qt.callLater(function(){cancelDialog.forceActiveFocus()})
                 MouseArea {anchors.fill:parent}
                 ColumnLayout {

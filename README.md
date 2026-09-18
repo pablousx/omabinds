@@ -32,9 +32,12 @@ omarchy-shell shell summon pablousx.omabinds '{}'
 
 El estado inicial está vacío. No se asignan F20/F21/F22 automáticamente.
 El manifest permite distribuir el repositorio mediante `omarchy plugin add`;
-después ejecuta `bash ~/.config/omarchy/plugins/pablousx.omabinds/scripts/install.sh`
-para instalar la integración Lua y el launcher. Omarchy no ejecuta instaladores
-de terceros al añadir un repositorio.
+al abrirlo por primera vez, omabinds detecta si faltan la integración Lua o el
+launcher y muestra un setup bloqueante. Pulsa **Open setup terminal** para abrir
+una terminal de Omarchy con el instalador; cuando termine, vuelve al panel y
+pulsa **Refresh status** para desbloquearlo. Omarchy no ejecuta instaladores de
+terceros al añadir un repositorio; si necesitas hacerlo manualmente, ejecuta
+`bash ~/.config/omarchy/plugins/pablousx.omabinds/scripts/install.sh`.
 
 ## Uso
 
