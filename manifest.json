@@ -4,7 +4,7 @@
   "name": "omabinds",
   "version": "1.0.0",
   "author": "pablousx",
-  "description": "Visual keyboard shortcuts, applications and action aliases",
+  "description": "Safely manage Omarchy shortcuts from a visual panel: launch apps, run commands, reuse actions, detect conflicts and roll back changes",
   "kinds": ["bar-widget"],
   "entryPoints": {"barWidget": "BarWidget.qml"},
   "barWidget": {

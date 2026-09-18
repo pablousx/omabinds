@@ -1,7 +1,11 @@
 # omabinds
 
-Editor visual de relaciones **tecla → acción** para Omarchy Quattro. Panel QML
-nativo, temas activos, selector de aplicaciones con iconos, comandos, acciones
+Convierte tus atajos de Omarchy en un panel visual fácil de mantener: crea y
+revisa relaciones **tecla → acción**, lanza aplicaciones, ejecuta comandos y
+reutiliza acciones existentes sin memorizar configuraciones Lua. Incluye
+detección de conflictos, cambios reversibles y recuperación automática para
+que personalizar el teclado sea rápido y seguro. Panel QML nativo, temas
+activos, selector de aplicaciones con iconos, comandos, acciones
 de Omarchy/Hyprland y aliases que reutilizan directamente las acciones Lua.
 
 Requiere Omarchy **4.0.4**, Hyprland **0.56.2** con configuración Lua,
