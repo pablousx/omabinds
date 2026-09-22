@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="es" data-theme="auto">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Crea, revisa y reutiliza atajos de Omarchy desde un panel visual nativo." />
+    <meta name="theme-color" content="#f4f0e8" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="omabinds — Tus atajos, a la vista" />
+    <meta property="og:description" content="Un panel visual para crear y mantener atajos de Omarchy." />
+    <meta property="og:url" content="https://pablousx.github.io/omabinds/" />
+    <link rel="canonical" href="https://pablousx.github.io/omabinds/" />
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="assets/site.css" />
+    <script src="assets/site.js" defer></script>
+    <title>omabinds — Tus atajos, a la vista</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#contenido">Saltar al contenido</a>
+    <header class="site-header">
+      <div class="shell header-inner">
+        <a class="brand" href="index.html" aria-label="Inicio de omabinds">
+          <span class="brand-key" aria-hidden="true">⌨</span>
+          <span>oma<span>binds</span></span>
+        </a>
+        <nav class="site-nav" aria-label="Navegación principal">
+          <a href="#caracteristicas">Características</a>
+          <a href="#instalacion">Instalación</a>
+          <a class="repo-link" href="https://github.com/pablousx/omabinds">GitHub <span aria-hidden="true">↗</span></a>
+          <button class="theme-toggle" type="button" data-theme-toggle hidden>
+            <span aria-hidden="true" data-theme-icon>◐</span>
+            <span class="sr-only" data-theme-label>Cambiar tema</span>
+          </button>
+        </nav>
+      </div>
+    </header>
+
+    <main id="contenido" tabindex="-1">
+      <section class="hero shell" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="kicker"><span aria-hidden="true">●</span> Plugin para Omarchy Quattro</p>
+          <h1 id="hero-title">Tus atajos.<br /><span>A la vista.</span></h1>
+          <p class="lede">Crea, revisa y reutiliza atajos de Omarchy desde un panel visual nativo. Sin memorizar configuraciones Lua.</p>
+          <div class="hero-actions">
+            <a class="button primary" href="#instalacion">Instalar omabinds <span aria-hidden="true">↓</span></a>
+            <a class="button quiet" href="https://github.com/pablousx/omabinds">Ver repositorio <span aria-hidden="true">↗</span></a>
+          </div>
+          <ul class="hero-facts" aria-label="Resumen">
+            <li>Local</li>
+            <li>Reversible</li>
+            <li>MIT</li>
+          </ul>
+        </div>
+
+        <figure class="product-shot">
+          <div class="shot-backdrop" aria-hidden="true">
+            <span class="key key-a">SUPER</span>
+            <span class="key key-b">F22</span>
+            <span class="key key-c">+</span>
+          </div>
+          <div class="shot-frame">
+            <div class="shot-bar"><span>omabinds</span><span>captura real</span></div>
+            <img src="preview.png" width="439" height="620" alt="Panel real de omabinds mostrando un atajo personalizado y acciones del sistema" />
+          </div>
+          <figcaption>Panel real · Tema activo de Omarchy</figcaption>
+        </figure>
+      </section>
+
+      <section class="statement" aria-label="Propuesta">
+        <div class="shell statement-inner">
+          <p>TECLA</p><span aria-hidden="true">→</span><p>ACCIÓN</p><span aria-hidden="true">→</span><p>LISTO</p>
+        </div>
+      </section>
+
+      <section class="section shell" id="caracteristicas" aria-labelledby="features-title">
+        <div class="section-heading">
+          <div><p class="section-index">01 / LO ESENCIAL</p><h2 id="features-title">Atajos que se entienden<br />antes de guardarlos.</h2></div>
+          <p>El panel reúne aplicaciones, comandos y acciones existentes sin esconder qué se va a cambiar.</p>
+        </div>
+        <div class="feature-grid">
+          <article>
+            <span class="feature-icon" aria-hidden="true">⌁</span>
+            <h3>Captura y encuentra</h3>
+            <p>Captura una combinación o escríbela por nombre. Filtra mappings personalizados, aliases, sistema y desactivados.</p>
+          </article>
+          <article>
+            <span class="feature-icon" aria-hidden="true">⇄</span>
+            <h3>Reutiliza acciones</h3>
+            <p>Asigna aplicaciones, comandos, acciones de Omarchy o Hyprland y aliases de bindings Lua existentes.</p>
+          </article>
+          <article>
+            <span class="feature-icon" aria-hidden="true">✓</span>
+            <h3>Cambia con respaldo</h3>
+            <p>Detecta conflictos antes de escribir, valida la configuración y restaura el estado anterior si algo falla.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section workflow shell" aria-labelledby="workflow-title">
+        <div class="section-heading">
+          <div><p class="section-index">02 / FLUJO</p><h2 id="workflow-title">Tres pasos.<br />Ninguna conjetura.</h2></div>
+        </div>
+        <ol class="steps">
+          <li><span>01</span><div><h3>Nombra y captura</h3><p>Crea un mapping y pulsa la combinación que quieres usar.</p></div></li>
+          <li><span>02</span><div><h3>Elige la acción</h3><p>Busca una aplicación, un comando o una acción ya disponible.</p></div></li>
+          <li><span>03</span><div><h3>Valida y guarda</h3><p>Revisa cualquier conflicto antes de aplicar el cambio.</p></div></li>
+        </ol>
+      </section>
+
+      <section class="install-section" id="instalacion" aria-labelledby="install-title">
+        <div class="shell install-grid">
+          <div>
+            <p class="section-index">03 / INSTALACIÓN</p>
+            <h2 id="install-title">Añádelo desde<br />tu terminal.</h2>
+            <p class="install-intro">Ejecuta el comando como tu usuario normal dentro de una sesión Hyprland activa. Omarchy pedirá confirmación.</p>
+          </div>
+          <div>
+            <div class="terminal">
+              <div class="terminal-head"><span>~ / terminal</span><button type="button" data-copy hidden>Copiar</button></div>
+              <pre><code id="install-command">omarchy plugin add https://github.com/pablousx/omabinds.git --enable</code></pre>
+            </div>
+            <p class="copy-status" data-copy-status role="status"></p>
+            <p class="setup-note"><strong>Primer inicio:</strong> abre omabinds desde el launcher o el icono de teclado. Si falta la integración local, el panel mostrará <em>Open setup terminal</em>; ejecútalo y después pulsa <em>Refresh status</em>.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section requirements shell" aria-labelledby="requirements-title">
+        <div class="section-heading">
+          <div><p class="section-index">04 / REQUISITOS</p><h2 id="requirements-title">Hecho para tu<br />sesión Omarchy.</h2></div>
+          <p>No instala paquetes Python, no requiere privilegios de administrador y no usa un daemon propio.</p>
+        </div>
+        <ul class="requirement-list">
+          <li><span>01</span><strong>Omarchy 4.0.4</strong></li>
+          <li><span>02</span><strong>Hyprland 0.56.2 con configuración Lua</strong></li>
+          <li><span>03</span><strong>Quickshell y una sesión Hyprland activa</strong></li>
+          <li><span>04</span><strong>Python 3, libxkbcommon y gio</strong></li>
+        </ul>
+      </section>
+
+      <section class="closing">
+        <div class="shell closing-inner">
+          <p class="section-index">TU TECLADO, TUS REGLAS</p>
+          <h2>Deja de recordar.<br /><span>Empieza a ver.</span></h2>
+          <a class="button primary" href="#instalacion">Instalar omabinds <span aria-hidden="true">↑</span></a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="shell footer-grid">
+        <a class="brand" href="index.html"><span class="brand-key" aria-hidden="true">⌨</span><span>oma<span>binds</span></span></a>
+        <nav aria-label="Enlaces del proyecto">
+          <a href="https://github.com/pablousx/omabinds">Repositorio</a>
+          <a href="privacy.html">Privacidad</a>
+          <a href="terms.html">Términos</a>
+          <a href="LICENSE.txt">Licencia MIT</a>
+        </nav>
+        <p>Proyecto independiente para Omarchy.<br />Sin analítica ni fuentes externas.</p>
+      </div>
+    </footer>
+  </body>
+</html>

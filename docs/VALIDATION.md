@@ -65,4 +65,4 @@ QT_QPA_PLATFORMTHEME=basic /usr/lib/qt6/bin/qmltestrunner -platform offscreen -i
 ```
 
 La captura [preview.png](preview.png) corresponde al panel real con el tema
-activo y datos de ejemplo. No es un diseño dibujado ni incluye el escritorio.
+activo. No es un diseño dibujado ni incluye el escritorio.
