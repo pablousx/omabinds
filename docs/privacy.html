@@ -1,77 +1,49 @@
 <!doctype html>
-<html lang="es" data-theme="auto">
+<html lang="es" data-theme="night">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Qué información usa omabinds y dónde permanece." />
-    <meta name="theme-color" content="#f4f0e8" />
+    <meta name="description" content="Qué información usa omabinds, qué permanece en tu equipo y cómo funciona este sitio." />
+    <meta name="theme-color" content="#1a1b26" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Privacidad — omabinds" />
+    <meta property="og:description" content="Qué información usa omabinds y dónde permanece." />
+    <meta property="og:site_name" content="omabinds" />
+    <meta property="og:url" content="https://pablousx.github.io/omabinds/privacy.html" />
     <link rel="canonical" href="https://pablousx.github.io/omabinds/privacy.html" />
+    <title>Privacidad — omabinds</title>
     <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="assets/site.css" />
     <script src="assets/site.js" defer></script>
-    <title>Privacidad — omabinds</title>
   </head>
   <body>
-    <a class="skip-link" href="#contenido">Saltar al contenido</a>
-    <header class="site-header">
-      <div class="shell header-inner">
-        <a class="brand" href="index.html" aria-label="Inicio de omabinds"><span class="brand-key" aria-hidden="true">⌨</span><span>oma<span>binds</span></span></a>
-        <nav class="site-nav" aria-label="Navegación principal">
-          <a href="index.html#caracteristicas">Características</a>
-          <a href="index.html#instalacion">Instalación</a>
-          <a class="repo-link" href="https://github.com/pablousx/omabinds">GitHub <span aria-hidden="true">↗</span></a>
-          <button class="theme-toggle" type="button" data-theme-toggle hidden><span aria-hidden="true" data-theme-icon>◐</span><span class="sr-only" data-theme-label>Cambiar tema</span></button>
-        </nav>
-      </div>
-    </header>
-    <main class="legal-main shell" id="contenido" tabindex="-1">
+    <a class="skip-link" href="#main">Saltar al contenido</a>
+    <header class="site-header"><div class="container header-inner">
+      <a class="brand" href="index.html" aria-label="Inicio de omabinds"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5h18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm2 4h2v2H5V9Zm4 0h2v2H9V9Zm4 0h2v2h-2V9Zm4 0h2v2h-2V9ZM5 13h2v2H5v-2Zm4 0h6v2H9v-2Zm8 0h2v2h-2v-2Z" /></svg><span>omabinds<span class="accent">.</span></span></a>
+      <nav class="site-nav" aria-label="Navegación principal"><a class="wide-link" href="index.html#how-it-works">Cómo funciona</a><a href="index.html#install">Instalar <span aria-hidden="true">↗</span></a><button class="theme-button" type="button" data-theme-toggle hidden aria-label="Cambiar al tema Everforest"><span class="theme-swatch" aria-hidden="true"></span><span data-theme-name>Tokyo Night</span></button></nav>
+    </div></header>
+    <main id="main" tabindex="-1"><div class="container">
       <header class="legal-hero">
         <p class="breadcrumb"><a href="index.html">omabinds</a> / privacidad</p>
-        <h1>Privacidad.</h1>
+        <p class="eyebrow">Los detalles, a la vista</p>
+        <h1>Privacidad<span class="accent">.</span></h1>
         <p class="lede">Qué información usa el plugin, dónde permanece y cómo funciona este sitio.</p>
-        <p class="breadcrumb">Vigente desde el 22 de septiembre de 2026 · Mantenido por pablousx</p>
+        <p class="small">Vigente desde el 22 de septiembre de 2026 · Mantenido por pablousx</p>
       </header>
       <div class="legal-layout">
-        <nav class="legal-nav" aria-label="En esta página">
-          <span class="section-index">En esta página</span>
-          <a href="#resumen">01 / Resumen</a>
-          <a href="#plugin">02 / El plugin</a>
-          <a href="#archivos">03 / Archivos locales</a>
-          <a href="#sitio">04 / Este sitio</a>
-          <a href="#contacto">05 / Contacto y cambios</a>
-        </nav>
-        <article class="legal-body">
+        <nav class="legal-nav" aria-label="En esta página"><p class="eyebrow">En esta página</p><a href="#alcance">01 / Alcance</a><a href="#plugin">02 / El plugin</a><a href="#archivos">03 / Archivos locales</a><a href="#sitio">04 / Este sitio</a><a href="#contacto">05 / Contacto y cambios</a></nav>
+        <article class="legal-body" aria-label="Política de privacidad">
           <div class="legal-callout"><p><strong>omabinds funciona localmente.</strong> No tiene cuentas, analítica, publicidad ni un servicio remoto propio. Tus mappings, comandos y rutas no se envían al mantenedor.</p></div>
-          <section id="resumen">
-            <h2>01 / Alcance</h2>
-            <p>Esta política cubre el plugin omabinds sin modificar y el sitio web del proyecto. No cubre versiones modificadas ni las prácticas de Omarchy, Hyprland, GitHub, las aplicaciones que abras o cualquier otro software de tu sistema.</p>
-          </section>
-          <section id="plugin">
-            <h2>02 / Información que usa el plugin</h2>
-            <p>Para mostrar y administrar atajos, omabinds procesa en tu equipo los bindings Lua efectivos de Hyprland, nombres de acciones, archivos de aplicaciones XDG, comandos, rutas e iconos. También consulta la configuración de Hyprland para detectar conflictos y verificar los cambios.</p>
-            <p>Las aplicaciones seleccionadas se abren mediante <code>gio launch</code> y los comandos que configures se ejecutan cuando activas su atajo. Esas aplicaciones o comandos pueden tener su propia actividad de red, independiente de omabinds.</p>
-          </section>
-          <section id="archivos">
-            <h2>03 / Almacenamiento local</h2>
-            <p>El estado gestionado se guarda en <code>~/.config/omabinds/state.lua</code>. Los archivos <code>state.previous.lua</code>, <code>transaction.json</code> y <code>pending.lua</code> permiten restaurar una operación interrumpida. Las exportaciones se guardan solo cuando eliges una ubicación.</p>
-            <p>Estos archivos pueden contener nombres, comandos y rutas personales. No están cifrados y no se cargan automáticamente a ningún servicio. Al desinstalar sin <code>--purge --yes</code>, el estado y los backups se conservan para una reinstalación.</p>
-          </section>
-          <section id="sitio">
-            <h2>04 / Este sitio web</h2>
-            <p>Este es un sitio estático para GitHub Pages. No incluye analítica, publicidad, formularios, fuentes remotas ni contenido de terceros incrustado. El sitio no puede leer la configuración del plugin.</p>
-            <p>Si cambias el tema, se guarda la preferencia <code>omabinds-theme</code> en el almacenamiento local del navegador. El botón Copiar escribe únicamente el comando de instalación visible cuando lo pulsas. Ambas funciones son opcionales y el sitio funciona sin JavaScript.</p>
-            <p>Cuando GitHub Pages aloja el sitio, GitHub puede procesar información técnica de la solicitud según su propia política. Los enlaces externos están sujetos a las prácticas de sus respectivos servicios.</p>
-          </section>
-          <section id="contacto">
-            <h2>05 / Contacto y cambios</h2>
-            <p>El mantenedor no recibe datos automáticos del plugin. Si compartes un informe en <a href="https://github.com/pablousx/omabinds">el repositorio</a>, revisa primero que no contenga comandos privados, rutas personales o archivos de recuperación.</p>
-            <p>Los cambios de esta política aparecerán aquí con una nueva fecha de vigencia.</p>
-          </section>
+          <section id="alcance"><h2><span>01</span>Alcance</h2><p>Esta política cubre el plugin omabinds sin modificar y el sitio web del proyecto. No cubre versiones modificadas ni las prácticas de Omarchy, Hyprland, GitHub, las aplicaciones que abras o cualquier otro software de tu sistema.</p></section>
+          <section id="plugin"><h2><span>02</span>Información que usa el plugin</h2><p>Para mostrar y administrar atajos, omabinds procesa en tu equipo los bindings Lua efectivos de Hyprland, nombres de acciones, archivos de aplicaciones XDG, comandos, rutas e iconos. También consulta la configuración de Hyprland para detectar conflictos y verificar cambios.</p><p>Las aplicaciones seleccionadas se abren mediante <code>gio launch</code> y los comandos configurados se ejecutan cuando activas su atajo. Esas aplicaciones o comandos pueden tener actividad de red propia, independiente de omabinds.</p></section>
+          <section id="archivos"><h2><span>03</span>Almacenamiento local</h2><p>El estado gestionado se guarda en <code>~/.config/omabinds/state.lua</code>. Los archivos <code>state.previous.lua</code>, <code>transaction.json</code> y <code>pending.lua</code> permiten restaurar una operación interrumpida. Las exportaciones se guardan solo cuando eliges una ubicación.</p><p>Estos archivos pueden contener nombres, comandos y rutas personales. No están cifrados ni se cargan automáticamente a ningún servicio. Al desinstalar sin <code>--purge --yes</code>, el estado y los backups se conservan.</p></section>
+          <section id="sitio"><h2><span>04</span>Este sitio web</h2><p>Este es un sitio estático para GitHub Pages. No incluye analítica, publicidad, formularios, fuentes remotas ni contenido de terceros incrustado. No puede leer la configuración del plugin.</p><p>Si cambias la paleta, el sitio guarda <code>omabinds-theme</code> en el almacenamiento local del navegador. El botón Copiar escribe únicamente el comando visible cuando lo pulsas. El sitio funciona cuando JavaScript o el almacenamiento no están disponibles.</p><p>GitHub puede procesar información técnica de la solicitud al alojar el sitio bajo su propia política. Los enlaces externos están sujetos a las prácticas de sus servicios.</p></section>
+          <section id="contacto"><h2><span>05</span>Contacto y cambios</h2><p>El mantenedor no recibe datos automáticos del plugin. Si compartes un informe en <a href="https://github.com/pablousx/omabinds">el repositorio</a>, revisa que no contenga comandos privados, rutas personales o archivos de recuperación.</p><p>Los cambios de esta política aparecerán aquí con una nueva fecha de vigencia.</p></section>
           <div class="legal-end"><a href="index.html">← Volver a omabinds</a><a href="terms.html">Términos →</a></div>
         </article>
       </div>
-    </main>
-    <footer class="site-footer"><div class="shell footer-grid"><a class="brand" href="index.html"><span class="brand-key" aria-hidden="true">⌨</span><span>oma<span>binds</span></span></a><nav aria-label="Enlaces del proyecto"><a href="https://github.com/pablousx/omabinds">Repositorio</a><a href="privacy.html" aria-current="page">Privacidad</a><a href="terms.html">Términos</a><a href="LICENSE.txt">Licencia MIT</a></nav><p>Proyecto independiente para Omarchy.<br />Sin analítica ni fuentes externas.</p></div></footer>
+    </div></main>
+    <footer class="site-footer"><div class="container"><div class="footer-top"><a class="brand" href="index.html" aria-label="Inicio de omabinds"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5h18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm2 4h2v2H5V9Zm4 0h2v2H9V9Zm4 0h2v2h-2V9Zm4 0h2v2h-2V9ZM5 13h2v2H5v-2Zm4 0h6v2H9v-2Zm8 0h2v2h-2v-2Z" /></svg><span>omabinds<span class="accent">.</span></span></a><nav class="footer-links" aria-label="Navegación del pie"><a href="https://github.com/pablousx/omabinds">Código ↗</a><a href="privacy.html" aria-current="page">Privacidad</a><a href="terms.html">Términos</a><a href="assets/LICENSE.txt">Licencia MIT</a></nav></div><div class="footer-bottom"><span>Creado por <a href="https://github.com/pablousx">pablousx</a> para <a href="https://omarchy.org/">Omarchy</a>.</span><span>Independiente y de código abierto.</span></div><div class="footer-wordmark" aria-hidden="true">omabinds.</div></div></footer>
   </body>
 </html>
