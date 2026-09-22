@@ -40,21 +40,28 @@ Ui.Panel {
     property var imported: null
     property var request: ({})
     property string lastOperation: ""
+    property string backupPath: "~/omabinds-backup.json"
     readonly property bool busy: worker.running
     readonly property bool setupRequired: !previewMode && !setupStatus.ready
+    onSetupRequiredChanged:if(!setupRequired && opened)Qt.callLater(function(){search.forceActiveFocus()})
     readonly property string backendPath: Qt.resolvedUrl("backend/omabinds.py").toString().replace(/^file:\/\//, "")
     readonly property string setupScriptPath: Qt.resolvedUrl("scripts/install.sh").toString().replace(/^file:\/\//, "")
-    readonly property string setupTerminalCommand: "bash " + JSON.stringify(setupScriptPath) + "; setup_status=$?; printf '\\nSetup finished with status %s.\\n' \"$setup_status\"; read -r -p 'Press Enter to return to omabinds...' _; exit \"$setup_status\"
+    readonly property string setupTerminalCommand: "bash " + JSON.stringify(setupScriptPath) + "; setup_status=$?; printf '\\nSetup finished with status %s.\\n' \"$setup_status\"; read -r -p 'Press Enter to return to omabinds...' _; exit \"$setup_status\""
     readonly property var rows: {
-        var all = configState.mappings.map(function(m) { return {managed:true, name:m.name, trigger:m.trigger, enabled:m.enabled, action:m.action, mapping:m} })
-        if (category === "All" || category === "System")
-            all = all.concat(catalog.map(function(r) { return {managed:false, name:r.name, trigger:r.trigger, enabled:true, source:r} }))
-        return all.filter(function(r) {
+        var items = configState.mappings.map(function(m) {
+            return {managed:true, name:m.name, trigger:m.trigger, enabled:m.enabled, action:m.action, mapping:m};
+        });
+        if (category === "All" || category === "System") {
+            items = items.concat(catalog.map(function(r) {
+                return {managed:false, name:r.name, trigger:r.trigger, enabled:true, source:r};
+            }));
+        }
+        return items.filter(function(r) {
             return Model.matches(r, search.text) && (category !== "Custom" || r.managed)
                 && (category !== "Aliases" || (r.managed && (r.action.kind === "alias" || r.action.copiedFrom)))
                 && (category !== "Disabled" || (r.managed && !r.enabled))
-                && (category !== "System" || !r.managed)
-        })
+                && (category !== "System" || !r.managed);
+        });
     }
     readonly property var actionRows: {
         var list = []
@@ -233,10 +240,11 @@ Ui.Panel {
         bar:root.bar
         open:root.opened
         focusTarget:card
-        contentWidth:fittedContentWidth(Style.space(570))
-        contentHeight:cappedContentHeight(Style.space(760))
+        contentWidth:fittedContentWidth(Style.space(440))
+        contentHeight:cappedContentHeight(Style.space(root.draft ? 650 : 620))
+
         FocusScope {
-            id: card
+            id:card
             anchors.fill:parent
             focus:true
             Keys.onEscapePressed: {
@@ -245,53 +253,97 @@ Ui.Panel {
                 if(root.conflicts.length) {root.conflicts=[];return}
                 root.dismiss()
             }
-            Keys.onPressed: function(event) {
-                if(event.key===Qt.Key_F && (event.modifiers & Qt.ControlModifier)) {search.forceActiveFocus();event.accepted=true}
+            Keys.onPressed:function(event) {
+                if(event.key===Qt.Key_F && (event.modifiers & Qt.ControlModifier) && !root.draft) {
+                    search.forceActiveFocus();event.accepted=true
+                }
             }
+
             ColumnLayout {
-                id: mainContent
-                anchors.fill:parent;anchors.bottomMargin:28;spacing:16
+                id:mainContent
+                anchors.fill:parent
                 visible:!root.setupRequired
-                enabled: !root.busy && root.conflicts.length===0 && root.confirmKind===""
-                RowLayout {
+                enabled:!root.busy && root.conflicts.length===0 && root.confirmKind===""
+                spacing:Style.space(12)
+
+                Ui.PanelHero {
                     Layout.fillWidth:true
-                    Item {
-                        Layout.preferredWidth:32;Layout.preferredHeight:32
-                        Image {
-                            id:titleIcon
-                            anchors.fill:parent;source:Qt.resolvedUrl("assets/keycap-3d.png")
-                            fillMode:Image.PreserveAspectFit;smooth:true;mipmap:true;visible:false
+                    title:"OmaBinds"
+                    meta:root.draft
+                        ? (root.configState.mappings.some(function(m){return m.id===root.draft.id}) ? "EDIT KEYBIND" : "NEW KEYBIND")
+                        : root.configState.mappings.length + (root.configState.mappings.length===1 ? " CUSTOM KEYBIND" : " CUSTOM KEYBINDS")
+                    foreground:Color.foreground
+                    iconComponent:Component {
+                        Text {
+                            text:"󰌌";textFormat:Text.PlainText;color:Color.foreground
+                            font.family:Style.font.family;font.pixelSize:Style.font.display
                         }
-                        MultiEffect {anchors.fill:titleIcon;source:titleIcon;colorization:1;colorizationColor:Color.foreground}
                     }
-                    Text {Layout.fillWidth:true;text:"omabinds";color:Color.foreground;font.family:Style.font.family;font.pixelSize:26;font.bold:true}
-                    Ui.Button {text:root.busy?"Validating…":"Refresh";focusable:true;enabled:!root.busy && !root.draft;onClicked:root.call("snapshot")}
-                    Ui.Button {text:"Close";focusable:true;onClicked:root.dismiss()}
+                    trailingControl:root.draft ? null : refreshControl
                 }
-                Rectangle {Layout.fillWidth:true;height:1;color:Color.muted;opacity:0.35}
+                Component {
+                    id:refreshControl
+                    Ui.PanelActionButton {
+                        iconText:root.busy?"󰑓":"󰑐"
+                        tooltipText:"Refresh"
+                        foreground:Color.foreground
+                        focusable:true
+                        enabled:!root.busy
+                        onClicked:root.call("snapshot")
+                    }
+                }
+
+                Ui.PanelSeparator {Layout.fillWidth:true;foreground:Color.foreground}
+
+                Text {
+                    visible:root.message!==""
+                    Layout.fillWidth:true
+                    text:root.message;textFormat:Text.PlainText;wrapMode:Text.Wrap
+                    color:root.failed?Color.urgent:Qt.darker(Color.foreground,1.4)
+                    font.family:Style.font.family;font.pixelSize:Style.font.bodySmall
+                }
+
                 RowLayout {
-                    visible:!root.draft;Layout.fillWidth:true
-                    Item {
-                        Layout.fillWidth:true;Layout.preferredHeight:search.implicitHeight
-                        Ui.TextField {id:search;anchors.fill:parent;rightPadding:clearSearch.visible?42:horizontalPadding;placeholderText:"Search by name, key, or action…  Ctrl+F"}
-                        Ui.Button {id:clearSearch;visible:search.text!=="";anchors.right:parent.right;anchors.rightMargin:4;anchors.verticalCenter:parent.verticalCenter;text:"×";focusable:true;onClicked:{search.clear();search.forceActiveFocus()}}
+                    visible:!root.draft
+                    Layout.fillWidth:true
+                    spacing:Style.space(8)
+                    Ui.TextField {
+                        id:search
+                        Layout.fillWidth:true
+                        placeholderText:"Search keybinds…"
                     }
-                    Ui.Button {text:"＋ New keybind";focusable:true;bordered:true;enabled:!root.busy;onClicked:root.edit(null,false)}
+                    Ui.PanelActionButton {
+                        iconText:"+";tooltipText:"New keybind";bordered:true;focusable:true
+                        foreground:Color.foreground;size:search.implicitHeight
+                        onClicked:root.edit(null,false)
+                    }
                 }
+
                 RowLayout {
-                    visible:!root.draft;spacing:6
-                    Repeater {
-                        model:["All","Custom","Aliases","Disabled","System"]
-                        Ui.Button {required property string modelData;text:modelData;focusable:true;selected:root.category===modelData;onClicked:root.category=modelData}
+                    visible:!root.draft
+                    Layout.fillWidth:true
+                    Ui.PanelSectionHeader {
+                        Layout.fillWidth:true;text:"KEYBINDS";foreground:Color.foreground
+                    }
+                    Ui.Dropdown {
+                        Layout.preferredWidth:Style.space(128)
+                        showLabel:false
+                        value:root.category
+                        options:[
+                            {value:"All",label:"All"},{value:"Custom",label:"Custom"},
+                            {value:"Aliases",label:"Aliases"},{value:"Disabled",label:"Disabled"},
+                            {value:"System",label:"System"}
+                        ]
+                        onChanged:function(value){root.category=value}
                     }
                 }
+
                 ListView {
-                    id: bindings
-                    visible:!root.draft;Layout.fillWidth:true;Layout.fillHeight:true;clip:true
-                    model:root.rows;spacing:4;reuseItems:true
-                    activeFocusOnTab:true
-                    keyNavigationEnabled:true
-                    highlight:Rectangle {color:Qt.rgba(Color.accent.r,Color.accent.g,Color.accent.b,0.08)}
+                    id:bindings
+                    visible:!root.draft
+                    Layout.fillWidth:true;Layout.fillHeight:true
+                    clip:true;model:root.rows;spacing:Style.space(4);reuseItems:true
+                    activeFocusOnTab:true;keyNavigationEnabled:true
                     Keys.onReturnPressed: {
                         if(currentIndex>=0 && currentIndex<count) {
                             var row=root.rows[currentIndex]
@@ -299,53 +351,104 @@ Ui.Panel {
                         }
                     }
                     Controls.ScrollBar.vertical:Controls.ScrollBar {}
-                    delegate: Rectangle {
+                    delegate:Ui.CursorSurface {
+                        id:bindingRow
                         required property var modelData
                         required property int index
-                        width:bindings.width;height:68
-                        color:index % 2 ? Qt.rgba(Color.foreground.r,Color.foreground.g,Color.foreground.b,0.025):"transparent"
+                        readonly property string tagText:!modelData.managed?"SYSTEM":!modelData.enabled?"DISABLED":(modelData.action.kind==="alias" || modelData.action.copiedFrom)?"ALIAS":"CUSTOM"
+                        width:bindings.width;height:Style.space(64)
+                        foreground:Color.foreground
+                        current:modelData.managed && !modelData.enabled
+                        hasCursor:bindingHover.hovered || (bindings.activeFocus && bindings.currentIndex===index)
+
+                        HoverHandler {id:bindingHover}
+                        MouseArea {
+                            anchors.fill:parent;cursorShape:Qt.PointingHandCursor
+                            onClicked:{bindings.currentIndex=index;modelData.managed?root.edit(modelData.mapping,false):root.fromSource(modelData.source)}
+                        }
                         RowLayout {
-                            anchors.fill:parent;anchors.margins:10;spacing:14
-                            Rectangle {
-                                Layout.preferredWidth:180;Layout.preferredHeight:34;radius:Style.cornerRadius
-                                color:Qt.rgba(Color.accent.r,Color.accent.g,Color.accent.b,0.1)
-                                Text {anchors.centerIn:parent;width:parent.width-10;horizontalAlignment:Text.AlignHCenter;elide:Text.ElideRight;text:modelData.trigger;color:Color.accent;font.family:Style.font.family;font.pixelSize:13}
-                            }
+                            anchors.fill:parent;anchors.leftMargin:Style.space(10);anchors.rightMargin:Style.space(6)
+                            spacing:Style.space(8)
                             ColumnLayout {
-                                Layout.fillWidth:true;spacing:4
-                                Text {Layout.fillWidth:true;text:modelData.name;textFormat:Text.PlainText;elide:Text.ElideRight;color:Color.foreground;font.family:Style.font.family;font.pixelSize:14}
-                                Text {text:!modelData.managed?"SYSTEM · reusable action":!modelData.enabled?"DISABLED":(modelData.action.kind==="alias" || modelData.action.copiedFrom)?"ALIAS · shared action":"CUSTOM";color:!modelData.enabled?Color.muted:Color.accent;font.family:Style.font.family;font.pixelSize:10;font.letterSpacing:1}
+                                Layout.fillWidth:true;spacing:Style.space(3)
+                                Text {
+                                    Layout.fillWidth:true
+                                    text:modelData.trigger;textFormat:Text.PlainText;elide:Text.ElideRight
+                                    color:modelData.enabled?Color.accent:Qt.darker(Color.foreground,1.5)
+                                    font.family:Style.font.family;font.pixelSize:Style.font.bodySmall;font.bold:true
+                                }
+                                Row {
+                                    Layout.fillWidth:true;spacing:Style.space(7)
+                                    Text {
+                                        id:nameLabel
+                                        width:Math.min(implicitWidth,Math.max(0,parent.width-tagPill.width-parent.spacing))
+                                        text:modelData.name;textFormat:Text.PlainText;elide:Text.ElideRight
+                                        color:Color.foreground;font.family:Style.font.family;font.pixelSize:Style.font.body
+                                    }
+                                    Rectangle {
+                                        id:tagPill
+                                        width:tagLabel.implicitWidth+Style.space(10)
+                                        height:tagLabel.implicitHeight+Style.space(4)
+                                        anchors.verticalCenter:nameLabel.verticalCenter
+                                        radius:Style.cornerRadius
+                                        color:Style.selectedFillFor(Color.foreground,Color.accent)
+                                        Text {
+                                            id:tagLabel;anchors.centerIn:parent;text:bindingRow.tagText;textFormat:Text.PlainText
+                                            color:Qt.darker(Color.foreground,1.35);font.family:Style.font.family
+                                            font.pixelSize:Style.font.caption;font.bold:true;font.letterSpacing:0.8
+                                        }
+                                    }
+                                }
                             }
-                            Ui.Button {visible:modelData.managed;text:modelData.enabled?"Disable":"Enable";focusable:true;enabled:!root.busy;onClicked:root.toggleMapping(modelData.mapping)}
-                            Ui.Button {
-                                text:!modelData.managed?"Create alias":modelData.enabled?"Edit":"Remove"
-                                focusable:true;enabled:!root.busy && (modelData.managed || modelData.source.supported)
+                            Ui.PanelActionButton {
+                                visible:modelData.managed
+                                iconText:modelData.enabled?"󰈈":"󰈉"
+                                tooltipText:modelData.enabled?"Disable":"Enable"
+                                foreground:Color.foreground
+                                onClicked:root.toggleMapping(modelData.mapping)
+                            }
+                            Ui.PanelActionButton {
+                                iconText:!modelData.managed?"+":modelData.enabled?"󰏫":"󰆴"
+                                tooltipText:!modelData.managed?"Create alias":modelData.enabled?"Edit":"Remove"
+                                foreground:Color.foreground
+                                enabled:modelData.managed || modelData.source.supported
                                 onClicked:!modelData.managed?root.fromSource(modelData.source):modelData.enabled?root.edit(modelData.mapping,false):root.askRemove(modelData.mapping)
                             }
                         }
                     }
                     Text {
                         anchors.centerIn:parent;width:Math.max(0,parent.width-32)
-                        visible:bindings.count===0;text:search.text?"No results. Try another search.":"Create your first keybind. Your current shortcuts will be preserved."
+                        visible:bindings.count===0
+                        text:search.text?"No matching keybinds":"No keybinds here yet"
                         horizontalAlignment:Text.AlignHCenter;wrapMode:Text.Wrap;textFormat:Text.PlainText
-                        color:Color.muted;font.family:Style.font.family
+                        color:Qt.darker(Color.foreground,1.5);font.family:Style.font.family;font.pixelSize:Style.font.bodySmall
                     }
                 }
+
                 ColumnLayout {
-                    visible:!!root.draft;Layout.fillWidth:true;Layout.fillHeight:true;spacing:12
+                    visible:!!root.draft
+                    Layout.fillWidth:true;Layout.fillHeight:true
+                    spacing:Style.space(10)
+
+                    Ui.TextField {id:nameField;Layout.fillWidth:true;placeholderText:"Name"}
                     RowLayout {
-                        Ui.TextField {id:nameField;Layout.fillWidth:true;placeholderText:"Keybind name"}
-                        Ui.Button {visible:!!root.draft && root.configState.mappings.some(function(m){return m.id===root.draft.id});text:"Duplicate";focusable:true;enabled:!root.busy;onClicked:root.edit(root.candidate().mappings.find(function(m){return m.id===root.draft.id}),true)}
-                        Ui.Button {visible:!!root.draft && root.configState.mappings.some(function(m){return m.id===root.draft.id});text:"Delete";focusable:true;enabled:!root.busy;onClicked:{root.confirmKind="delete";root.confirmText="Delete this keybind? Its key combination will become available and any replaced binding will be restored."}}
+                        Layout.fillWidth:true;spacing:Style.space(8)
+                        Ui.TextField {id:triggerField;Layout.fillWidth:true;placeholderText:"F20 or SUPER + V"}
+                        Ui.PanelActionButton {
+                            iconText:root.capturing?"×":"󰌌"
+                            tooltipText:root.capturing?"Cancel capture":"Capture combination"
+                            bordered:true;focusable:true;foreground:Color.foreground;size:triggerField.implicitHeight
+                            onClicked:{root.capturing=!root.capturing;if(root.capturing)captureFocus.forceActiveFocus()}
+                        }
                     }
-                    RowLayout {
-                        Ui.TextField {id:triggerField;Layout.fillWidth:true;placeholderText:"F20, SUPER + V, XF86AudioPlay…"}
-                        Ui.Button {text:root.capturing?"Cancel capture":"Capture combination";focusable:true;bordered:true;onClicked:{root.capturing=!root.capturing;if(root.capturing)captureFocus.forceActiveFocus()}}
-                    }
-                    Rectangle {
-                        visible:root.capturing;Layout.fillWidth:true;Layout.preferredHeight:70
-                        color:Qt.rgba(Color.accent.r,Color.accent.g,Color.accent.b,0.12);border.color:Color.accent;radius:Style.cornerRadius
-                        Text {anchors.centerIn:parent;text:"Press the combination · Escape cancels";color:Color.accent;font.family:Style.font.family}
+                    Ui.CursorSurface {
+                        visible:root.capturing
+                        Layout.fillWidth:true;Layout.preferredHeight:Style.space(52)
+                        current:true;foreground:Color.foreground
+                        Text {
+                            anchors.centerIn:parent;text:"Press a combination · Esc cancels"
+                            color:Color.foreground;font.family:Style.font.family;font.pixelSize:Style.font.bodySmall
+                        }
                         Item {
                             id:captureFocus;anchors.fill:parent
                             Keys.onPressed:function(event) {
@@ -353,130 +456,173 @@ Ui.Panel {
                                 if(event.key===Qt.Key_Escape && event.modifiers===Qt.NoModifier){root.capturing=false;return}
                                 if(root.capturedKey)return
                                 var key=Model.capture(event)
-                                if(key) {triggerField.text=key;root.capturedKey=event.key}
+                                if(key){triggerField.text=key;root.capturedKey=event.key}
                             }
                             Keys.onReleased:function(event) {
                                 event.accepted=true
-                                if(event.key===root.capturedKey && !event.isAutoRepeat) {
-                                    root.capturing=false;root.capturedKey=0;triggerField.forceActiveFocus()
-                                }
+                                if(event.key===root.capturedKey && !event.isAutoRepeat){root.capturing=false;root.capturedKey=0;triggerField.forceActiveFocus()}
                             }
                         }
                     }
-                    Text {
-                        Layout.fillWidth:true;wrapMode:Text.Wrap;color:Color.accent;font.family:Style.font.family;font.pixelSize:12
-                        text:"Choose what the key combination triggers"
-                    }
+
                     RowLayout {
-                        Repeater {
-                            model:["Applications","Command","Omarchy","Hyprland","Aliases"]
-                            Ui.Button {
-                                required property string modelData
-                                text:modelData;focusable:true;selected:root.actionTab===modelData
-                                onActiveFocusChanged:if(activeFocus){root.actionTab=modelData;actionSearch.text=""}
-                                onClicked:{root.actionTab=modelData;actionSearch.text=""}
-                            }
+                        Layout.fillWidth:true
+                        Ui.PanelSectionHeader {Layout.fillWidth:true;text:"ACTION";foreground:Color.foreground}
+                        Ui.Dropdown {
+                            Layout.preferredWidth:Style.space(154);showLabel:false
+                            value:root.actionTab
+                            options:["Applications","Command","Omarchy","Hyprland","Aliases"]
+                            onChanged:function(value){root.actionTab=value;actionSearch.text=""}
                         }
                     }
-                    Ui.TextField {id:commandField;visible:root.actionTab==="Command";Layout.fillWidth:true;placeholderText:"Shell command, for example: notify-send 'Hello'"}
-                    Item {
-                        visible:root.actionTab!=="Command";Layout.fillWidth:true;Layout.preferredHeight:actionSearch.implicitHeight
-                        Ui.TextField {id:actionSearch;anchors.fill:parent;rightPadding:clearActionSearch.visible?42:horizontalPadding;placeholderText:"Search actions or applications…"}
-                        Ui.Button {id:clearActionSearch;visible:actionSearch.text!=="";anchors.right:parent.right;anchors.rightMargin:4;anchors.verticalCenter:parent.verticalCenter;text:"×";focusable:true;onClicked:{actionSearch.clear();actionSearch.forceActiveFocus()}}
+                    Ui.TextField {
+                        id:commandField;visible:root.actionTab==="Command"
+                        Layout.fillWidth:true;placeholderText:"Shell command"
+                    }
+                    Ui.TextField {
+                        id:actionSearch;visible:root.actionTab!=="Command"
+                        Layout.fillWidth:true;placeholderText:"Search actions…"
                     }
                     ListView {
-                        id:actions;visible:root.actionTab!=="Command";Layout.fillWidth:true;Layout.fillHeight:true;clip:true;reuseItems:true
+                        id:actions
+                        visible:root.actionTab!=="Command"
+                        Layout.fillWidth:true;Layout.fillHeight:true
+                        clip:true;reuseItems:true;model:root.actionRows;spacing:Style.space(3)
                         property bool mouseSelecting:false
-                        model:root.actionRows
-                        activeFocusOnTab:true
-                        keyNavigationEnabled:true
-                        highlight:null
+                        activeFocusOnTab:true;keyNavigationEnabled:true
                         onCurrentIndexChanged:if(!mouseSelecting && activeFocus && currentIndex>=0 && currentIndex<count)root.selectAction(root.actionRows[currentIndex],root.actionTab,false)
                         Keys.onReturnPressed:if(currentIndex>=0 && currentIndex<count)root.selectAction(root.actionRows[currentIndex],root.actionTab,true)
                         Controls.ScrollBar.vertical:Controls.ScrollBar {}
-                        delegate: Ui.Button {
+                        delegate:Ui.Button {
+                            id:actionRow
                             required property var modelData
                             required property int index
-                            width:actions.width;height:42;focusable:true;leftAlign:true
+                            readonly property bool keybindStyle:root.actionTab==="Omarchy" || root.actionTab==="Hyprland" || root.actionTab==="Aliases"
+                            width:actions.width;height:keybindStyle?Style.space(54):Style.space(38)
+                            focusable:true;leftAlign:true
                             selected:root.selectedActionKey===root.actionKey(modelData,root.actionTab)
-                            text:(modelData.trigger?modelData.trigger + "   →   ":"") + modelData.name
-                            leftPadding:root.actionTab==="Applications"?42:12
-                            Image {visible:root.actionTab==="Applications";anchors.left:parent.left;anchors.leftMargin:10;anchors.verticalCenter:parent.verticalCenter;width:24;height:24;source:visible?Quickshell.iconPath(modelData.icon || "application-x-executable",true):""}
+                            text:keybindStyle?"":modelData.name
+                            leftPadding:root.actionTab==="Applications"?Style.space(40):Style.space(10)
+                            Image {
+                                visible:root.actionTab==="Applications"
+                                anchors.left:parent.left;anchors.leftMargin:Style.space(10);anchors.verticalCenter:parent.verticalCenter
+                                width:Style.space(20);height:width
+                                source:visible?Quickshell.iconPath(modelData.icon || "application-x-executable",true):""
+                            }
+                            Column {
+                                visible:actionRow.keybindStyle
+                                anchors.left:parent.left;anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter
+                                anchors.leftMargin:Style.space(10);anchors.rightMargin:Style.space(10)
+                                spacing:Style.space(3)
+                                Text {
+                                    width:parent.width
+                                    text:modelData.trigger || modelData.command || ""
+                                    textFormat:Text.PlainText;elide:Text.ElideRight
+                                    color:Color.accent;font.family:Style.font.family
+                                    font.pixelSize:Style.font.bodySmall;font.bold:true
+                                }
+                                Text {
+                                    width:parent.width;text:modelData.name
+                                    textFormat:Text.PlainText;elide:Text.ElideRight
+                                    color:Color.foreground;font.family:Style.font.family;font.pixelSize:Style.font.body
+                                }
+                            }
                             onClicked:{actions.mouseSelecting=true;actions.currentIndex=index;actions.mouseSelecting=false;root.selectAction(modelData,root.actionTab,true)}
                         }
-                        Text {anchors.centerIn:parent;width:Math.max(0,parent.width-32);visible:actions.count===0;text:"No matching actions.";horizontalAlignment:Text.AlignHCenter;wrapMode:Text.Wrap;color:Color.muted;font.family:Style.font.family}
+                        Text {
+                            anchors.centerIn:parent;visible:actions.count===0;text:"No matching actions"
+                            color:Qt.darker(Color.foreground,1.5);font.family:Style.font.family;font.pixelSize:Style.font.bodySmall
+                        }
                     }
                     Item {visible:root.actionTab==="Command";Layout.fillHeight:true}
+
+                    Ui.PanelSeparator {Layout.fillWidth:true;foreground:Color.foreground}
                     RowLayout {
-                        Layout.alignment:Qt.AlignRight
-                        Ui.Button {text:"Cancel";focusable:true;enabled:!root.busy;onClicked:{root.confirmKind="discard";root.confirmText="Discard the current edit?"}}
-                        Ui.Button {text:"Validate and save";focusable:true;bordered:true;enabled:!root.busy && !root.capturing && !root.previewMode;onClicked:root.save()}
+                        Layout.fillWidth:true
+                        Ui.Button {
+                            visible:!!root.draft && root.configState.mappings.some(function(m){return m.id===root.draft.id})
+                            text:"Delete";focusable:true;enabled:!root.busy
+                            onClicked:{root.confirmKind="delete";root.confirmText="Delete this keybind? Its key combination will become available and any replaced binding will be restored."}
+                        }
+                        Item {Layout.fillWidth:true}
+                        Ui.Button {text:"Cancel";focusable:true;onClicked:{root.confirmKind="discard";root.confirmText="Discard the current edit?"}}
+                        Ui.Button {text:"Save";focusable:true;bordered:true;enabled:!root.busy && !root.capturing && !root.previewMode;onClicked:root.save()}
                     }
                 }
+
+                Ui.PanelSeparator {visible:!root.draft;Layout.fillWidth:true;foreground:Color.foreground}
                 RowLayout {
-                    visible:!root.draft;Layout.fillWidth:true
-                    Ui.TextField {id:filePath;Layout.fillWidth:true;placeholderText:"~/omabinds-backup.json"}
-                    Ui.Button {text:"Export";focusable:true;enabled:!root.busy;onClicked:root.call("export",{path:filePath.text || "~/omabinds-backup.json"})}
-                    Ui.Button {text:"Import";focusable:true;enabled:!root.busy;onClicked:root.call("import",{path:filePath.text || "~/omabinds-backup.json"})}
-                    Ui.Button {text:"Reset";focusable:true;enabled:!root.busy;onClicked:{root.confirmKind="reset";root.confirmText="Remove all custom omabinds keybinds? System bindings will be restored."}}
+                    visible:!root.draft
+                    Layout.fillWidth:true
+                    spacing:Style.space(4)
+                    Ui.Button {Layout.fillWidth:true;text:"Export";focusable:true;enabled:!root.busy;onClicked:root.call("export",{path:root.backupPath})}
+                    Ui.Button {Layout.fillWidth:true;text:"Import";focusable:true;enabled:!root.busy;onClicked:root.call("import",{path:root.backupPath})}
+                    Ui.Button {Layout.fillWidth:true;text:"Reset";focusable:true;enabled:!root.busy;onClicked:{root.confirmKind="reset";root.confirmText="Remove all custom omabinds keybinds? System bindings will be restored."}}
                 }
             }
+
             ColumnLayout {
-                id: setupContent
-                anchors.fill:parent;anchors.bottomMargin:28
+                id:setupContent
+                anchors.fill:parent
                 visible:root.setupRequired
-                spacing:18
-                Item {Layout.fillHeight:true}
-                Text {
-                    Layout.fillWidth:true;text:"Finish setting up omabinds";color:Color.foreground
-                    font.family:Style.font.family;font.pixelSize:26;font.bold:true
+                spacing:Style.space(14)
+                Ui.PanelHero {
+                    Layout.fillWidth:true;title:"OmaBinds";meta:"SETUP REQUIRED";foreground:Color.foreground
+                    iconComponent:Component {Text {text:"󰌌";color:Color.foreground;font.family:Style.font.family;font.pixelSize:Style.font.display}}
                 }
+                Ui.PanelSeparator {Layout.fillWidth:true;foreground:Color.foreground}
+                Item {Layout.fillHeight:true}
+                Ui.PanelSectionHeader {text:"FINISH SETUP";foreground:Color.foreground}
                 Text {
                     Layout.fillWidth:true;wrapMode:Text.Wrap
-                    text:"omabinds needs its Hyprland Lua integration and launcher before it can manage shortcuts. Open the setup terminal to install both; your existing configuration is backed up and validated."
-                    color:Color.foreground;font.family:Style.font.family;font.pixelSize:14
+                    text:"Install the Hyprland integration and launcher before managing keybinds. Your current configuration will be backed up and validated."
+                    color:Color.foreground;font.family:Style.font.family;font.pixelSize:Style.font.body
                 }
-                ColumnLayout {
-                    Layout.fillWidth:true;spacing:8
-                    Text {Layout.fillWidth:true;text:(root.setupStatus.lua ? "✓" : "○") + " Hyprland Lua integration";color:root.setupStatus.lua?Color.accent:Color.muted;font.family:Style.font.family;font.pixelSize:13}
-                    Text {Layout.fillWidth:true;text:(root.setupStatus.launcher ? "✓" : "○") + " Application launcher";color:root.setupStatus.launcher?Color.accent:Color.muted;font.family:Style.font.family;font.pixelSize:13}
-                }
-                Ui.Button {
-                    id:setupButton;Layout.alignment:Qt.AlignLeft;text:setupTerminal.running?"Opening terminal…":"Open setup terminal"
-                    focusable:true;bordered:true;enabled:!root.busy;onClicked:root.setup()
-                }
-                Ui.Button {
-                    Layout.alignment:Qt.AlignLeft;text:"Refresh status";focusable:true;enabled:!root.busy;onClicked:root.call("snapshot")
-                }
+                Text {Layout.fillWidth:true;text:(root.setupStatus.lua?"✓":"○")+"  Hyprland integration";color:root.setupStatus.lua?Color.accent:Color.foreground;font.family:Style.font.family;font.pixelSize:Style.font.bodySmall}
+                Text {Layout.fillWidth:true;text:(root.setupStatus.launcher?"✓":"○")+"  Application launcher";color:root.setupStatus.launcher?Color.accent:Color.foreground;font.family:Style.font.family;font.pixelSize:Style.font.bodySmall}
+                Ui.Button {id:setupButton;Layout.fillWidth:true;text:setupTerminal.running?"Opening terminal…":"Open setup terminal";focusable:true;bordered:true;onClicked:root.setup()}
+                Ui.Button {Layout.fillWidth:true;text:"Refresh status";focusable:true;onClicked:root.call("snapshot")}
                 Text {
-                    Layout.fillWidth:true;wrapMode:Text.Wrap
-                    text:"The terminal will run: " + root.setupTerminalCommand.split(";")[0]
-                    color:Color.muted;font.family:Style.font.family;font.pixelSize:11
+                    visible:root.message!=="";Layout.fillWidth:true;wrapMode:Text.Wrap
+                    text:root.message;color:root.failed?Color.urgent:Qt.darker(Color.foreground,1.4)
+                    font.family:Style.font.family;font.pixelSize:Style.font.bodySmall
                 }
                 Item {Layout.fillHeight:true}
-            }
-            Text {
-                anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom
-                height:18;visible:root.message!=="" && (root.setupRequired || !mainContent.visible);text:root.message;textFormat:Text.PlainText
-                verticalAlignment:Text.AlignVCenter;elide:Text.ElideRight
-                color:root.failed?Color.urgent:Color.accent;font.family:Style.font.family;font.pixelSize:12
             }
             Rectangle {
-                anchors.fill:parent;visible:!root.setupRequired && (root.conflicts.length>0 || root.confirmKind!=="");color:Qt.rgba(0,0,0,0.85)
+                anchors.fill:parent
+                visible:!root.setupRequired && (root.conflicts.length>0 || root.confirmKind!=="")
+                color:Util.alpha(Color.background,0.72)
                 onVisibleChanged:if(visible)Qt.callLater(function(){cancelDialog.forceActiveFocus()})
-                MouseArea {anchors.fill:parent}
-                ColumnLayout {
-                    anchors.centerIn:parent;width:Math.min(parent.width-60,650);spacing:18
-                    Text {text:root.conflicts.length?"Combination in use":"Confirm change";color:Color.foreground;font.family:Style.font.family;font.pixelSize:22;font.bold:true}
-                    Text {
-                        Layout.fillWidth:true;wrapMode:Text.Wrap;textFormat:Text.PlainText
-                        text:root.conflicts.length?root.conflicts.map(function(c){return c.trigger + " → " + c.name}).join("\n") + "\n\nNo bindings have been changed yet.":root.confirmText
-                        color:Color.foreground;font.family:Style.font.family;font.pixelSize:14
-                    }
-                    RowLayout {
-                        Ui.Button {id:cancelDialog;text:"Cancel";focusable:true;KeyNavigation.right:alternateDialog.visible?alternateDialog:confirmDialog;onClicked:{root.conflicts=[];root.confirmKind=""}}
-                        Ui.Button {id:alternateDialog;visible:root.conflicts.length>0;text:"Use another combination";focusable:true;KeyNavigation.left:cancelDialog;KeyNavigation.right:confirmDialog;onClicked:{root.conflicts=[];triggerField.forceActiveFocus()}}
-                        Ui.Button {id:confirmDialog;text:root.conflicts.length?"Replace explicitly":"Confirm";focusable:true;bordered:true;enabled:!root.busy;KeyNavigation.left:alternateDialog.visible?alternateDialog:cancelDialog;onClicked:root.conflicts.length?root.replaceConflicts():root.confirm()}
+                MouseArea {anchors.fill:parent;onClicked:{root.conflicts=[];root.confirmKind=""}}
+                Ui.BorderSurface {
+                    anchors.centerIn:parent
+                    width:Math.min(parent.width-Style.space(32),Style.space(400))
+                    height:dialogColumn.implicitHeight+Style.space(36)
+                    color:Color.background
+                    borderSpec:Border.surfaceSpec("popups","border",Color.popups.border,Math.max(1,Style.normalBorderWidth))
+                    radius:Style.cornerRadius
+                    MouseArea {anchors.fill:parent;onClicked:{}}
+                    ColumnLayout {
+                        id:dialogColumn
+                        anchors.fill:parent;anchors.margins:Style.space(18);spacing:Style.space(14)
+                        Text {
+                            Layout.fillWidth:true
+                            text:root.conflicts.length?"Combination in use":"Confirm change"
+                            color:Color.foreground;font.family:Style.font.family;font.pixelSize:Style.font.title;font.bold:true
+                        }
+                        Text {
+                            Layout.fillWidth:true;wrapMode:Text.Wrap;textFormat:Text.PlainText
+                            text:root.conflicts.length?root.conflicts.map(function(c){return c.trigger + " → " + c.name}).join("\n") + "\n\nNo bindings have been changed yet.":root.confirmText
+                            color:Color.foreground;font.family:Style.font.family;font.pixelSize:Style.font.body
+                        }
+                        RowLayout {
+                            Layout.fillWidth:true
+                            Ui.Button {id:cancelDialog;text:"Cancel";focusable:true;KeyNavigation.right:alternateDialog.visible?alternateDialog:confirmDialog;onClicked:{root.conflicts=[];root.confirmKind=""}}
+                            Item {Layout.fillWidth:true}
+                            Ui.Button {id:alternateDialog;visible:root.conflicts.length>0;text:"Change key";focusable:true;KeyNavigation.left:cancelDialog;KeyNavigation.right:confirmDialog;onClicked:{root.conflicts=[];triggerField.forceActiveFocus()}}
+                            Ui.Button {id:confirmDialog;text:root.conflicts.length?"Replace":"Confirm";focusable:true;bordered:true;enabled:!root.busy;KeyNavigation.left:alternateDialog.visible?alternateDialog:cancelDialog;onClicked:root.conflicts.length?root.replaceConflicts():root.confirm()}
+                        }
                     }
                 }
             }

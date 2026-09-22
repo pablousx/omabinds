@@ -13,6 +13,12 @@ Quickshell, Python 3, `libxkbcommon`, `gio` y una sesión Hyprland activa.
 No necesita paquetes Python, privilegios de administrador, daemon ni acceso a
 dispositivos de entrada. No diferencia teclados: ambos disparan los mismos atajos.
 
+La versión 1.1 rediseña el panel con los componentes actuales de Quattro, añade
+búsquedas tolerantes a espacios y signos `+`, comprueba por separado la integración
+Lua y el launcher, y recupera instalaciones antiguas que no llegaron a crear una
+ubicación activa en la barra. La reinstalación valida el archivo candidato sin
+confundir errores históricos de `hyprctl eval` con fallos de configuración actuales.
+
 ## Instalación
 
 Desde este directorio, dentro de la sesión gráfica:
@@ -29,6 +35,15 @@ También puedes usar:
 ```sh
 omarchy-shell shell summon pablousx.omabinds '{}'
 ```
+
+La distribución versionada se publica junto con su checksum y licencia:
+
+- [omabinds-1.1.0.tar.gz](https://github.com/pablousx/omabinds/releases/download/v1.1.0/omabinds-1.1.0.tar.gz)
+- [SHA256SUMS](https://github.com/pablousx/omabinds/releases/download/v1.1.0/SHA256SUMS)
+- [LICENSE](https://github.com/pablousx/omabinds/releases/download/v1.1.0/LICENSE)
+
+Descarga los tres archivos en el mismo directorio y ejecuta
+`sha256sum -c SHA256SUMS` antes de extraer el paquete.
 
 El estado inicial está vacío. No se asignan F20/F21/F22 automáticamente.
 El manifest permite distribuir el repositorio mediante `omarchy plugin add`;
@@ -61,7 +76,9 @@ a activarla con las mismas validaciones. Eliminar o desactivar un reemplazo
 restaura el binding original, sin reconstruir sus archivos.
 
 Las categorías filtran personalizados, aliases, desactivados y sistema.
-Usa Tab/Shift+Tab, Enter/Espacio y **Ctrl+F** para navegar y buscar. Escape cancela
+Usa Tab/Shift+Tab, Enter/Espacio y **Ctrl+F** para navegar y buscar. Las búsquedas
+de combinaciones ignoran espacios y signos `+`: `CTRL + ALT`, `CTRL ALT` y
+`CTRL+ALT` son equivalentes. Escape cancela
 la captura; puedes introducir `Escape` manualmente para asignarlo. La captura
 solicita el inhibidor de shortcuts de Wayland y no modifica la configuración
 de entrada. Bindings con `dont_inhibit` y atajos reservados por el compositor
@@ -121,11 +138,14 @@ antes de usar `omarchy plugin remove`, para que no queden referencias Lua rotas.
 ```sh
 python3 -m unittest discover -s tests -v
 lua tests/test_runtime.lua
+QT_QPA_PLATFORMTHEME=basic /usr/lib/qt6/bin/qmltestrunner -platform offscreen -input tests
+omarchy plugin validate .
+python3 scripts/check-site.py
 ```
 
 Consulta [la matriz de validación](docs/VALIDATION.md) para distinguir pruebas
 automatizadas, comprobaciones en la sesión real y pruebas físicas pendientes.
-La [vista previa](docs/preview.png) usa datos de ejemplo.
+La [vista previa](docs/preview.png) es una captura del panel real con el tema activo.
 
 API utilizada: manifest de `/usr/share/omarchy/shell/README.md`, stubs de
 `/usr/share/hypr/stubs/hl.meta.lua` y [bindings oficiales de Hyprland](https://wiki.hypr.land/configuring/core/binds/).

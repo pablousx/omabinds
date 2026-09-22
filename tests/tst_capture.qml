@@ -29,4 +29,14 @@ TestCase {
     function test_repeat() {
         compare(Model.capture({key:Qt.Key_F20,modifiers:0,isAutoRepeat:true}),"")
     }
+    function test_search_normalizes_keybinds() {
+        var row = {name:"Screenshot",trigger:"SUPER + CTRL + ALT + M"}
+        verify(Model.matches(row,"  SUPER + CTRL + ALT + M  "))
+        verify(Model.matches(row,"SUPER+CTRL+ALT+M"))
+        verify(Model.matches(row,"super +ctrl+ alt +m"))
+        verify(Model.matches(row,"super ctrl alt m"))
+        verify(Model.matches(row," super   ctrl+alt m "))
+        verify(Model.matches(row,"Screen shot"))
+        verify(!Model.matches(row,"SUPER+CTRL+ALT+N"))
+    }
 }

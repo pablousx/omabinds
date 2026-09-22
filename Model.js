@@ -2,7 +2,8 @@
 
 function clone(value) { return JSON.parse(JSON.stringify(value)) }
 function uid() { return 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 9) }
-function matches(row, query) { return JSON.stringify(row).toLowerCase().indexOf(query.toLowerCase()) >= 0 }
+function searchText(value) { return String(value || '').toLowerCase().replace(/[\s+]+/g, '') }
+function matches(row, query) { return searchText(JSON.stringify(row)).indexOf(searchText(query)) >= 0 }
 function keyName(event) {
     var k = event.key
     if (k >= 0x01000030 && k <= 0x01000052) return 'F' + (k - 0x01000030 + 1)
