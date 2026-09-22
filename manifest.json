@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "pablousx.omabinds",
   "name": "omabinds",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "pablousx",
   "description": "Safely manage Omarchy shortcuts from a visual panel: launch apps, run commands, reuse actions, detect conflicts and roll back changes",
   "kinds": ["bar-widget"],

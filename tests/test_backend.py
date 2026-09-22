@@ -91,7 +91,7 @@ class BackendTests(unittest.TestCase):
         original = encode_state(self.c.state())
         self.c.statefile.write_text(original)
         req={'state':{'version':1,'mappings':[mapping()]},'revision':revision(self.c.state())}
-        with patch.object(self.c, 'verify'), patch.object(self.c, 'live', return_value=[]), patch.object(self.c, 'config_ok', side_effect=[None, Error('invalid'), None]), patch('backend.omabinds.run',return_value=''):
+        with patch.object(self.c, 'verify'), patch.object(self.c, 'live', return_value=[]), patch.object(self.c, 'config_ok', side_effect=[Error('invalid'), None]), patch('backend.omabinds.run',return_value=''):
             with self.assertRaisesRegex(Error, 'restored'): self.c.commit(req)
         self.assertEqual(self.c.statefile.read_text(),original)
         self.assertFalse(self.c.journal.exists())
@@ -104,6 +104,16 @@ class BackendTests(unittest.TestCase):
             with self.assertRaises(Error):self.c.commit(req)
         self.assertEqual(self.c.statefile.read_text(),original)
         self.assertFalse(self.c.journal.exists())
+
+    def test_reinstall_ignores_historical_configerrors_before_reload(self):
+        self.c.main.write_text('-- BEGIN omabinds CAPTURE\n')
+        with patch.object(self.c, 'verify') as verify, \
+             patch.object(self.c, 'config_ok') as config_ok, \
+             patch('backend.omabinds.run', return_value='') as run_mock:
+            self.c.install()
+        verify.assert_called_once_with()
+        config_ok.assert_called_once_with()
+        run_mock.assert_called_once_with(['hyprctl', 'reload'])
 
     def test_recover_interrupted_transaction(self):
         old=encode_state(self.c.state())
@@ -126,5 +136,13 @@ class BackendTests(unittest.TestCase):
         with patch.dict(os.environ,{'XDG_DATA_HOME':str(root/'local'),'XDG_DATA_DIRS':str(root/'system')}):
             self.assertEqual([a['name'] for a in apps()],['Real app'])
 
+    def test_setup_status_requires_lua_and_owned_launcher(self):
+        with patch.dict(os.environ, {'XDG_DATA_HOME': str(Path(self.tmp.name)/'data')}):
+            self.assertEqual(self.c.setup_status(), {'lua': False, 'launcher': False, 'ready': False})
+            self.c.main.write_text('-- BEGIN omabinds CAPTURE\n')
+            self.assertEqual(self.c.setup_status(), {'lua': True, 'launcher': False, 'ready': False})
+            self.c.launcher.parent.mkdir(parents=True)
+            self.c.launcher.write_text('[Desktop Entry]\nX-omabinds-Owned=true\n')
+            self.assertEqual(self.c.setup_status(), {'lua': True, 'launcher': True, 'ready': True})
 
 if __name__ == '__main__': unittest.main()

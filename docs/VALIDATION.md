@@ -1,21 +1,28 @@
-# Validación — 2026-09-17
+# Validación — 2026-09-22
 
 Entorno: Omarchy 4.0.4-1, Hyprland 0.56.2, Qt 6.11.2, Quickshell de la instalación.
 
 ## Automatizada
 
-- 14 pruebas Python: validación XKB, Unicode/escape Lua, comandos sin ejecutar,
+- 16 pruebas Python: validación XKB, Unicode/escape Lua, comandos sin ejecutar,
   detección de conflictos estáticos/dinámicos, consentimiento de reemplazo,
   revisión concurrente, mappings desactivados, importación, catálogo XDG,
   fallo antes de escribir, rollback, recuperación y conservación de edición ajena
-  durante desinstalación.
-- 16 comprobaciones QML de captura (18 resultados QtTest contando inicio/final):
+  durante desinstalación, reinstalación ante errores históricos de `hyprctl eval`
+  y estado de setup que exige integración y launcher propio.
+- 17 comprobaciones QML (19 resultados QtTest contando inicio/final):
   F20/F21/F22/F35, multimedia, volumen, brillo, modificadores, combinaciones,
-  Caps Lock, teclado numérico, AltGr, fallback de código y auto-repeat.
+  Caps Lock, teclado numérico, AltGr, fallback de código, auto-repeat y búsqueda
+  equivalente con o sin espacios/signos `+`.
 - Runtime Lua: descarta bindings eliminados por overrides; el alias conserva
   exactamente el callable original y ambos triggers siguen activos.
 - El binario real `Hyprland --verify-config` acepta los hooks y el alias F22
   sobre la configuración completa existente.
+- `omarchy plugin validate` acepta tanto el árbol fuente como el paquete extraído.
+- El paquete usa una lista cerrada de archivos, metadatos normalizados y gzip sin
+  timestamp; dos construcciones del mismo commit deben producir el mismo SHA-256.
+- El verificador del website comprueba páginas, destinos locales, versión, enlaces
+  de descarga, copias de licencia y que las dos capturas publicadas sean idénticas.
 
 ## Sesión real
 
@@ -32,8 +39,9 @@ restaura el estado en `finally` y compara todos los bindings originales efectivo
 | Desactivar/restaurar | Desaparece y reaparece el mapping efectivo, conservando su definición. |
 | Error | Inyección de fallo de validación/recarga: estado previo restaurado y journal cerrado. |
 | Persistencia | Recarga independiente de Hyprland conserva los tres mappings de prueba. |
-| Interfaz | Panel carga en Wayland; 164 grupos de acciones, 92 aplicaciones y 30 comandos de Omarchy descubiertos en esta instalación. Guardar F24 desde QML y retirarlo funciona de extremo a extremo. |
-| Estado final | Cero mappings gestionados; conjunto de bindings originales intacto. |
+| Interfaz | El candidato instalado carga en Wayland con setup completo; descubre 2 acciones reutilizables, 96 aplicaciones y 30 comandos de Omarchy. Lista, editor, conflicto y setup se inspeccionaron con datos sintéticos. |
+| Captura | `preview.png` se obtuvo del panel instalado mediante `grabToImage`, se aplanó con el fondo del tema Flexoki Light y contiene únicamente el panel. Las copias raíz/website son idénticas (510×735). |
+| Estado final | Se restauró el mapping que ya existía antes de la prueba; estado, `hyprland.lua`, `shell.json` y launcher conservaron sus hashes originales. |
 | Desinstalación | Ejecutada realmente: `hyprland.lua` restaurado byte por byte; launcher y plugin retirados. Reinstalación limpia completada. |
 | Manifest/launcher | Registry de Omarchy reconoce `pablousx.omabinds`, habilitado; `summon` devuelve `ok` y `hide` cierra el panel. |
 
@@ -62,6 +70,8 @@ externo ni se modificaron archivos del sistema.
 python3 -m unittest discover -s tests -v
 lua tests/test_runtime.lua
 QT_QPA_PLATFORMTHEME=basic /usr/lib/qt6/bin/qmltestrunner -platform offscreen -input tests
+omarchy plugin validate .
+python3 scripts/check-site.py
 ```
 
 La captura [preview.png](preview.png) corresponde al panel real con el tema

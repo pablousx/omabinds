@@ -142,6 +142,11 @@ class Controller:
         self.catalogfile = self.dir/'catalog.json'
         self.journal = self.dir/'transaction.json'
 
+    @property
+    def launcher(self):
+        data = Path(os.environ.get('XDG_DATA_HOME', str(Path.home()/'.local/share')))
+        return data/'applications/omabinds.desktop'
+
     @contextlib.contextmanager
     def lock(self):
         self.dir.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -187,12 +192,25 @@ class Controller:
     def installed(self):
         return self.main.exists() and BEGIN + 'CAPTURE' in self.main.read_text()
 
+    def launcher_installed(self):
+        try:
+            return self.launcher.is_file() and 'X-omabinds-Owned=true' in self.launcher.read_text()
+        except OSError:
+            return False
+
+    def setup_status(self):
+        lua = self.installed()
+        launcher = self.launcher_installed()
+        return {'lua': lua, 'launcher': launcher, 'ready': lua and launcher}
+
     def install(self):
         if self.installed():
-            self.config_ok(); self.verify()
+            # configerrors can contain a historical failure from an unrelated
+            # `hyprctl eval`. Validate the candidate file itself first; after
+            # reload, configerrors describes this generation.
+            self.verify()
             run(['hyprctl', 'reload']); self.config_ok()
             return {'message': 'Integration updated and verified.'}
-        self.config_ok()
         old = self.main.read_text()
         if not self.statefile.exists(): atomic(self.statefile, encode_state(self.state()))
         start, end = self.hooks()
@@ -300,7 +318,9 @@ class Controller:
                     label = ' · '.join(part.replace('-', ' ').title() for part in c['route'].split()[1:])
                     commands.append({'name': label, 'command': c['route']})
         except (Error, KeyError, ValueError): pass
-        return {'state': state, 'revision': revision(state), 'catalog': catalog, 'apps': apps(), 'commands': commands, 'installed': self.installed()}
+        setup = self.setup_status()
+        return {'state': state, 'revision': revision(state), 'catalog': catalog, 'apps': apps(), 'commands': commands,
+                'installed': setup['lua'], 'setup': setup}
 
     def preview(self, req):
         state = self.validate(req['state'])
@@ -315,7 +335,6 @@ class Controller:
 
     def commit(self, req):
         if not self.installed(): raise Error('Install the integration with scripts/install.sh first.')
-        self.config_ok()
         preview = self.preview(req)
         if preview['conflicts']: return preview
         state = preview['state']
@@ -416,8 +435,8 @@ def main():
     c = Controller()
     try:
         req = json.load(sys.stdin) if len(sys.argv) == 1 else {'op': sys.argv[1]}
+        op = req.get('op', 'snapshot')
         with c.lock():
-            op = req.get('op', 'snapshot')
             if op != 'recover': c.recover()
             if op == 'snapshot': result = c.snapshot()
             elif op == 'install': result = c.install()

@@ -19,7 +19,7 @@ Ui.BarWidget {
         if("anchorItem" in target)target.anchorItem=button
         if("hostWidget" in target)target.hostWidget=root
     }
-    function open(){if(panelLoader.item&&panelLoader.item.open)panelLoader.item.open("{}")}
+    function open(payload){if(panelLoader.item&&panelLoader.item.open)panelLoader.item.open(payload || "{}")}
     function close(){if(panelLoader.item&&panelLoader.item.close)panelLoader.item.close()}
     function togglePanel(){if(panelLoader.item&&panelLoader.item.toggle)panelLoader.item.toggle()}
     function closeForPopoutSwitch(){if(panelLoader.item)panelLoader.item.closeForPopoutSwitch()}
