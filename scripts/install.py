@@ -10,8 +10,8 @@ import time
 
 SOURCE = Path(__file__).resolve().parents[1]
 PLUGIN = 'pablousx.omabinds'
-config = Path(os.environ.get('XDG_CONFIG_HOME', str(Path.home()/'.config')))
-data = Path(os.environ.get('XDG_DATA_HOME', str(Path.home()/'.local/share')))
+config = Path(os.environ.get('XDG_CONFIG_HOME') or Path.home()/'.config').expanduser()
+data = Path(os.environ.get('XDG_DATA_HOME') or Path.home()/'.local/share').expanduser()
 target = config/'omarchy/plugins'/PLUGIN
 launcher = data/'applications/omabinds.desktop'
 FILES = ['manifest.json','Panel.qml','BarWidget.qml','Model.js','assets','backend','lua','scripts','README.md','LICENSE']

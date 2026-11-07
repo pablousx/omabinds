@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from backend.omabinds import Controller, Error, canonical, encode_state, lua_utf8, revision, apps
+from backend.omabinds import Controller, Error, canonical, encode_state, lua_utf8, revision, apps, openable_plugins, plugin_icon
 
 
 def mapping(key='F20', **kwargs):
@@ -47,6 +47,51 @@ class BackendTests(unittest.TestCase):
         for state in ({'version': 2, 'mappings': []}, {'version':1, 'mappings':[mapping(), mapping()]}, {'version':1,'mappings':[dict(mapping(),enabled='yes')]}):
             with self.assertRaises(Error): self.c.validate(state)
 
+    def test_plugin_kinds_and_validation(self):
+        entries = [
+            {'id':'example.panel','name':'Panel','kinds':['panel'],'enabled':True},
+            {'id':'example.menu','name':'Menu','kinds':['menu','bar-widget'],'enabled':True},
+            {'id':'example.overlay','name':'Overlay','kinds':['service','overlay'],'enabled':True},
+            {'id':'example.widget','name':'Widget','kinds':['bar-widget'],'enabled':True},
+            {'id':'example.service','name':'Service','kinds':['service'],'enabled':True},
+            {'id':'example.bar','name':'Bar','kinds':['bar'],'enabled':True},
+            {'id':'example.disabled','name':'Disabled','kinds':['panel'],'enabled':False},
+        ]
+        widget = Path(self.tmp.name)/'omarchy/plugins/example.widget'
+        widget.mkdir(parents=True)
+        (widget/'manifest.json').write_text(json.dumps({'entryPoints': {'barWidget': 'BarWidget.qml'}}))
+        (widget/'BarWidget.qml').write_text('BarWidget { function open() { panel.open() } }')
+        with patch.dict(os.environ, XDG_CONFIG_HOME=self.tmp.name), patch('backend.omabinds.run', return_value=json.dumps(entries)) as shell:
+            self.assertEqual(set(openable_plugins()), {'example.panel','example.menu','example.overlay','example.widget'})
+            m = mapping()
+            m['action'] = {'kind':'plugin','plugin':'example.panel','command':'touch /tmp/untrusted'}
+            self.c.validate({'version':1,'mappings':[m]})
+            self.assertEqual(m['action']['command'], "omarchy-shell shell summon example.panel '{}'")
+            m['action'] = {'kind':'plugin','plugin':'example.widget'}
+            self.c.validate({'version':1,'mappings':[m]})
+            self.assertEqual(m['action']['command'], "omarchy-shell shell summon example.widget '{}'")
+            for plugin in ('example.service','example.bar','example.disabled','missing'):
+                m['action'] = {'kind':'plugin','plugin':plugin}
+                with self.assertRaisesRegex(Error, 'unavailable'):
+                    self.c.validate({'version':1,'mappings':[m]})
+            m['action'] = {'kind':'plugin','plugin':'example.panel; touch /tmp/untrusted'}
+            with self.assertRaisesRegex(Error, 'identifier'):
+                self.c.validate({'version':1,'mappings':[m]})
+            m['enabled']=False
+            m['action']={'kind':'plugin','plugin':'example.disabled','command':'untrusted'}
+            self.c.validate({'version':1,'mappings':[m]})
+            self.assertEqual(m['action']['command'], '')
+            self.assertTrue(shell.called)
+
+    def test_plugin_icon_from_installed_assets(self):
+        icon = Path(self.tmp.name)/'omarchy/plugins/example.panel/assets/icon.svg'
+        icon.parent.mkdir(parents=True)
+        icon.write_text('<svg/>')
+        with patch.dict(os.environ, XDG_CONFIG_HOME=self.tmp.name):
+            self.assertEqual(plugin_icon('example.panel'), icon.as_uri())
+            self.assertEqual(plugin_icon('missing'), '')
+            self.assertEqual(plugin_icon('..'), '')
+
     def test_command_syntax_checked_without_execution(self):
         m=mapping();m['action']['command']='echo "unterminated'
         with self.assertRaises(Error):self.c.validate({'version':1,'mappings':[m]})
@@ -62,6 +107,44 @@ class BackendTests(unittest.TestCase):
             result=self.c.preview({'state':{'version':1,'mappings':[m]},'revision':revision(self.c.state())})
         self.assertEqual(result['state']['mappings'][0]['replaces'],{})
 
+    def test_system_edit_is_bound_to_original_and_restorable(self):
+        row={'id':'|F20','trigger':'F20','name':'Original','signature':'sig','supported':True,'submap':''}
+        self.c.catalogfile.write_text(json.dumps({'bindings':[row]}))
+        m=mapping(replaces={'|F20':'sig'},systemSource={'id':'|F20','signature':'sig'})
+        m['name']='Original'
+        state={'version':1,'mappings':[m]}
+        with patch.object(self.c,'live',return_value=[]):
+            self.assertEqual(self.c.preview({'state':copy.deepcopy(state),'revision':revision(self.c.state())})['conflicts'],[])
+            moved=self.c.preview({'state':{'version':1,'mappings':[dict(m,trigger='F21')]},'revision':revision(self.c.state())})
+            self.assertEqual(moved['conflicts'],[])
+            self.assertEqual(moved['state']['mappings'][0]['replaces'],{'|F20':'sig'})
+            for changed in (dict(m, name='Renamed'), dict(m, replaces={}),
+                            dict(m, replaces={'|F20':'sig','|F21':'sig'})):
+                with self.assertRaises(Error):
+                    self.c.preview({'state':{'version':1,'mappings':[changed]},'revision':revision(self.c.state())})
+            row['signature']='new signature'
+            self.c.catalogfile.write_text(json.dumps({'bindings':[row]}))
+            with self.assertRaisesRegex(Error,'changed'):
+                self.c.preview({'state':copy.deepcopy(state),'revision':revision(self.c.state())})
+            m['enabled']=False
+            self.assertEqual(self.c.preview({'state':state,'revision':revision(self.c.state())})['conflicts'],[])
+
+    def test_system_edit_rechecked_after_verify(self):
+        self.c.main.write_text('-- BEGIN omabinds CAPTURE\n')
+        old=encode_state(self.c.state()); self.c.statefile.write_text(old)
+        row={'id':'|F20','trigger':'F20','name':'Original','signature':'sig','supported':True,'submap':''}
+        self.c.catalogfile.write_text(json.dumps({'bindings':[row]}))
+        m=mapping(replaces={'|F20':'sig'},systemSource={'id':'|F20','signature':'sig'})
+        m['name']='Original'
+        def change_source(*args):
+            row['signature']='changed'
+            self.c.catalogfile.write_text(json.dumps({'bindings':[row]}))
+        with patch.object(self.c,'verify',side_effect=change_source), patch.object(self.c,'live',return_value=[]):
+            with self.assertRaisesRegex(Error,'changed'):
+                self.c.commit({'state':{'version':1,'mappings':[m]},'revision':revision(self.c.state())})
+        self.assertEqual(self.c.statefile.read_text(),old)
+        self.assertFalse(self.c.journal.exists())
+
     def test_dynamic_conflict_is_not_mistaken_for_original(self):
         self.c.catalogfile.write_text(json.dumps({'bindings':[{'id':'|F20','trigger':'F20','name':'Original','signature':'sig','runtime':[{'dispatcher':'__lua','arg':'5'}]}]}))
         dynamic=[{'key':'F20','keycode':0,'modmask':0,'description':'Dynamic action','dispatcher':'__lua','arg':'99'}]
@@ -76,6 +159,27 @@ class BackendTests(unittest.TestCase):
             found = self.c.preview({'state':{'version':1,'mappings':[mapping()]},'revision':revision(self.c.state())})
         self.assertEqual(found['conflicts'][0]['name'], 'Existing action')
         self.assertFalse(self.c.statefile.exists())
+
+    def test_snapshot_does_not_count_moved_alias_as_original(self):
+        row={'id':'|SUPER + ALT + S','trigger':'SUPER + ALT + S','name':'Original',
+             'signature':'sig','submap':'','runtime':[{'dispatcher':'__lua','arg':'5'}]}
+        self.c.catalogfile.write_text(json.dumps({'bindings':[row], 'warnings':[]}))
+        edited=mapping('SUPER + SHIFT + S', replaces={row['id']:row['signature']})
+        edited['id']='edit'
+        self.c.statefile.write_text(encode_state({'version':1,'mappings':[edited]}))
+        original={'key':'S','keycode':0,'modmask':72,'submap':'',
+                  'description':'Original','dispatcher':'__lua','arg':'5'}
+        moved=dict(original,modmask=65,arg='99',description='[omabinds:edit] Original')
+        with patch.object(self.c,'live',return_value=[original,moved]), patch('backend.omabinds.run',return_value='{"commands":[]}'):
+            catalog=self.c.snapshot()['catalog']['bindings']
+            self.assertFalse(catalog[0]['effective'], 'hyprctl also lists disabled original handles')
+            self.assertEqual(len(catalog),1)
+        with patch.object(self.c,'live',return_value=[original]), patch('backend.omabinds.run',return_value='{"commands":[]}'):
+            self.assertTrue(self.c.snapshot()['catalog']['bindings'][0]['effective'], 'failed override must not hide the original')
+        edited['enabled']=False
+        self.c.statefile.write_text(encode_state({'version':1,'mappings':[edited]}))
+        with patch.object(self.c,'live',return_value=[original]), patch('backend.omabinds.run',return_value='{"commands":[]}'):
+            self.assertTrue(self.c.snapshot()['catalog']['bindings'][0]['effective'], 'disabling the edit restores the system row')
 
     def test_disabled_binding_does_not_conflict(self):
         a, b = mapping(), dict(mapping(), id='two', enabled=False)

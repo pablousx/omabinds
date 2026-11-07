@@ -23,12 +23,16 @@ Ui.Panel {
     property var catalog: []
     property var applications: []
     property var commands: []
+    property var plugins: []
     property var setupStatus: ({lua:false, launcher:false, ready:false})
     property string message: ""
     property bool failed: false
     property var draft: null
     property string category: "All"
     property string actionTab: "Applications"
+    // Ui.Dropdown assigns to its own value on selection, breaking its value
+    // binding; keep its label in sync when opening a different mapping.
+    onActionTabChanged: actionDropdown.value = actionTab
     property string selectedActionKey: ""
     property bool capturing: false
     property int capturedKey: 0
@@ -52,7 +56,7 @@ Ui.Panel {
             return {managed:true, name:m.name, trigger:m.trigger, enabled:m.enabled, action:m.action, mapping:m};
         });
         if (category === "All" || category === "System") {
-            items = items.concat(catalog.map(function(r) {
+            items = items.concat(catalog.filter(function(r) { return r.effective !== false }).map(function(r) {
                 return {managed:false, name:r.name, trigger:r.trigger, enabled:true, source:r};
             }));
         }
@@ -66,8 +70,9 @@ Ui.Panel {
     readonly property var actionRows: {
         var list = []
         if (actionTab === "Applications") list = applications
-        else if (actionTab === "Aliases") list = catalog.concat(configState.mappings.map(function(m) {return {name:m.name,trigger:m.trigger,id:m.id,supported:true,actionCopy:m.action}}))
+        else if (actionTab === "Aliases") list = catalog.filter(function(r) {return r.effective !== false}).concat(configState.mappings.map(function(m) {return {name:m.name,trigger:m.trigger,id:m.id,supported:true,actionCopy:m.action}}))
         else if (actionTab === "Omarchy") list = commands
+        else if (actionTab === "Plugins") list = plugins
         else if (actionTab === "Hyprland") list = [
             {name:"Toggle fullscreen",command:"hyprctl dispatch fullscreen 0"},
             {name:"Toggle floating window",command:"hyprctl dispatch togglefloating"},
@@ -118,15 +123,16 @@ Ui.Panel {
         close()
     }
     function edit(mapping, duplicate) {
-        draft = mapping ? Model.clone(mapping) : {id:Model.uid(),name:"",trigger:"",enabled:true,action:{kind:"command",command:""},replaces:{}}
+        draft = mapping ? Model.clone(mapping) : {id:Model.uid(),name:"",trigger:"",enabled:true,action:{kind:"app",desktop:""},replaces:{}}
         if (duplicate) { draft.id=Model.uid(); draft.name += " (copy)"; draft.trigger=""; draft.replaces={} }
         nameField.text=draft.name; triggerField.text=draft.trigger
         commandField.text=draft.action.command || ""
-        actionTab = draft.action.kind === "app" ? "Applications" : draft.action.kind === "alias" ? "Aliases" : "Command"
+        actionTab = draft.action.kind === "app" ? "Applications" : draft.action.kind === "alias" ? "Aliases" : draft.action.kind === "plugin" ? "Plugins" : "Command"
         selectedActionKey = draft.action.kind === "app" ? "Applications:" + draft.action.desktop
             : draft.action.kind === "alias" ? "Aliases:" + draft.action.source
+            : draft.action.kind === "plugin" ? "Plugins:" + draft.action.plugin
             : draft.action.selectedFrom ? draft.action.selectedFrom : ""
-        conflicts=[]; message=""; Qt.callLater(function() { nameField.forceActiveFocus() })
+        conflicts=[]; message=""; Qt.callLater(function() { (draft && draft.systemSource ? triggerField : nameField).forceActiveFocus() })
     }
     function fromSource(source) {
         edit(null, false)
@@ -134,10 +140,28 @@ Ui.Panel {
         actionTab="Aliases"
         selectAction(source, "Aliases")
     }
+    function editSystem(source) {
+        if (!source.supported || source.submap || source.dynamic) return
+        edit(null, false)
+        var d=Model.clone(draft)
+        d.name=source.name
+        d.trigger=source.trigger
+        d.systemSource={id:source.id,signature:source.signature}
+        d.action={kind:"alias",source:source.id,signature:source.signature}
+        d.replaces={}
+        d.replaces[source.id]=source.signature
+        draft=d
+        nameField.text=d.name; triggerField.text=d.trigger
+        actionTab="Aliases"
+        message="Move the shortcut without changing the system action. Restore returns it to its original shortcut."
+        Qt.callLater(function() { triggerField.forceActiveFocus() })
+    }
     function askRemove(mapping) {
         draft=Model.clone(mapping)
-        confirmKind="delete"
-        confirmText="Remove this keybind? Its combination will become available and any replaced system binding will be restored."
+        confirmKind=mapping.systemSource ? "restoreSystem" : "delete"
+        confirmText=mapping.systemSource
+            ? "Restore this system action to its original shortcut?"
+            : "Remove this keybind? Its combination will become available and any replaced system binding will be restored."
     }
     function actionKey(row, tab) { return tab + ":" + (row.id || row.command || "") }
     function clearAction() {
@@ -150,6 +174,7 @@ Ui.Panel {
         if (allowToggle && selectedActionKey === key) { clearAction(); return }
         var d=Model.clone(draft)
         if (tab === "Applications") d.action={kind:"app",desktop:row.id}
+        else if (tab === "Plugins") d.action={kind:"plugin",plugin:row.id}
         else if (tab === "Aliases") {
             if (!row.supported) { failed=true; message="This action cannot be reused safely."; return }
             if(row.actionCopy) {d.action=Model.clone(row.actionCopy);d.action.copiedFrom=row.name;d.action.selectedFrom=key}
@@ -160,8 +185,8 @@ Ui.Panel {
     }
     function candidate() {
         var s=Model.clone(configState), d=Model.clone(draft)
-        d.name=nameField.text; d.trigger=triggerField.text
-        if (actionTab === "Command") d.action={kind:"command",command:commandField.text}
+        d.name=d.systemSource ? draft.name : nameField.text; d.trigger=triggerField.text
+        if (!d.systemSource && actionTab === "Command") d.action={kind:"command",command:commandField.text}
         var index=s.mappings.findIndex(function(m) { return m.id === d.id })
         if (index < 0) s.mappings.push(d); else s.mappings[index]=d
         return s
@@ -189,7 +214,7 @@ Ui.Panel {
         var kind=confirmKind; confirmKind=""
         if (kind === "discard") { draft=null;capturing=false;return }
         var s=Model.clone(configState)
-        if (kind === "delete") s.mappings=s.mappings.filter(function(m){return m.id!==draft.id})
+        if (kind === "delete" || kind === "restoreSystem") s.mappings=s.mappings.filter(function(m){return m.id!==draft.id})
         if (kind === "reset") s.mappings=[]
         if (kind === "import") s=imported
         pending=s; call("preview",{state:s,revision:revision})
@@ -207,7 +232,7 @@ Ui.Panel {
                     if (!result.ok) { root.failed=true;root.message=result.error;return }
                     if (result.state && result.revision) {
                         root.configState=result.state;root.revision=result.revision
-                        root.catalog=result.catalog.bindings;root.applications=result.apps;root.commands=result.commands || []
+                        root.catalog=result.catalog.bindings;root.applications=result.apps;root.commands=result.commands || [];root.plugins=result.plugins || []
                         if (result.setup) root.setupStatus=result.setup
                         if (root.lastOperation === "commit") {root.draft=null;root.conflicts=[]}
                         if (!result.installed && !root.setupRequired) root.message="Install the integration with scripts/install.sh to save keybinds."
@@ -355,7 +380,7 @@ Ui.Panel {
                         id:bindingRow
                         required property var modelData
                         required property int index
-                        readonly property string tagText:!modelData.managed?"SYSTEM":!modelData.enabled?"DISABLED":(modelData.action.kind==="alias" || modelData.action.copiedFrom)?"ALIAS":"CUSTOM"
+                        readonly property string tagText:!modelData.managed?"SYSTEM":!modelData.enabled?"DISABLED":modelData.mapping.systemSource?"SYSTEM EDIT":(modelData.action.kind==="alias" || modelData.action.copiedFrom)?"ALIAS":"CUSTOM"
                         width:bindings.width;height:Style.space(64)
                         foreground:Color.foreground
                         current:modelData.managed && !modelData.enabled
@@ -408,11 +433,19 @@ Ui.Panel {
                                 onClicked:root.toggleMapping(modelData.mapping)
                             }
                             Ui.PanelActionButton {
-                                iconText:!modelData.managed?"+":modelData.enabled?"󰏫":"󰆴"
-                                tooltipText:!modelData.managed?"Create alias":modelData.enabled?"Edit":"Remove"
+                                iconText:!modelData.managed?"+":modelData.mapping.systemSource?"󰑐":modelData.enabled?"󰏫":"󰆴"
+                                tooltipText:!modelData.managed?"Create alias":modelData.mapping.systemSource?"Restore original shortcut":modelData.enabled?"Edit":"Remove"
                                 foreground:Color.foreground
                                 enabled:modelData.managed || modelData.source.supported
-                                onClicked:!modelData.managed?root.fromSource(modelData.source):modelData.enabled?root.edit(modelData.mapping,false):root.askRemove(modelData.mapping)
+                                onClicked:!modelData.managed?root.fromSource(modelData.source):modelData.mapping.systemSource?root.askRemove(modelData.mapping):modelData.enabled?root.edit(modelData.mapping,false):root.askRemove(modelData.mapping)
+                            }
+                            Ui.PanelActionButton {
+                                visible:!modelData.managed
+                                iconText:"󰏫";tooltipText:"Edit system action"
+                                foreground:Color.foreground
+                                enabled:!!modelData.source && modelData.source.supported && !modelData.source.submap && !modelData.source.dynamic
+                                    && !root.configState.mappings.some(function(m){return !!m.systemSource && m.systemSource.id===modelData.source.id})
+                                onClicked:root.editSystem(modelData.source)
                             }
                         }
                     }
@@ -430,7 +463,7 @@ Ui.Panel {
                     Layout.fillWidth:true;Layout.fillHeight:true
                     spacing:Style.space(10)
 
-                    Ui.TextField {id:nameField;Layout.fillWidth:true;placeholderText:"Name"}
+                    Ui.TextField {id:nameField;Layout.fillWidth:true;placeholderText:"Name";enabled:!root.draft || !root.draft.systemSource}
                     RowLayout {
                         Layout.fillWidth:true;spacing:Style.space(8)
                         Ui.TextField {id:triggerField;Layout.fillWidth:true;placeholderText:"F20 or SUPER + V"}
@@ -466,26 +499,28 @@ Ui.Panel {
                     }
 
                     RowLayout {
+                        visible:!root.draft || !root.draft.systemSource
                         Layout.fillWidth:true
                         Ui.PanelSectionHeader {Layout.fillWidth:true;text:"ACTION";foreground:Color.foreground}
                         Ui.Dropdown {
+                            id:actionDropdown
                             Layout.preferredWidth:Style.space(154);showLabel:false
                             value:root.actionTab
-                            options:["Applications","Command","Omarchy","Hyprland","Aliases"]
+                            options:["Applications","Command","Omarchy","Plugins","Hyprland","Aliases"]
                             onChanged:function(value){root.actionTab=value;actionSearch.text=""}
                         }
                     }
                     Ui.TextField {
-                        id:commandField;visible:root.actionTab==="Command"
+                        id:commandField;visible:(!root.draft || !root.draft.systemSource) && root.actionTab==="Command"
                         Layout.fillWidth:true;placeholderText:"Shell command"
                     }
                     Ui.TextField {
-                        id:actionSearch;visible:root.actionTab!=="Command"
+                        id:actionSearch;visible:(!root.draft || !root.draft.systemSource) && root.actionTab!=="Command"
                         Layout.fillWidth:true;placeholderText:"Search actions…"
                     }
                     ListView {
                         id:actions
-                        visible:root.actionTab!=="Command"
+                        visible:(!root.draft || !root.draft.systemSource) && root.actionTab!=="Command"
                         Layout.fillWidth:true;Layout.fillHeight:true
                         clip:true;reuseItems:true;model:root.actionRows;spacing:Style.space(3)
                         property bool mouseSelecting:false
@@ -497,7 +532,7 @@ Ui.Panel {
                             id:actionRow
                             required property var modelData
                             required property int index
-                            readonly property bool keybindStyle:root.actionTab==="Omarchy" || root.actionTab==="Hyprland" || root.actionTab==="Aliases"
+                            readonly property bool keybindStyle:root.actionTab==="Omarchy" || root.actionTab==="Hyprland" || root.actionTab==="Aliases" || root.actionTab==="Plugins"
                             width:actions.width;height:keybindStyle?Style.space(54):Style.space(38)
                             focusable:true;leftAlign:true
                             selected:root.selectedActionKey===root.actionKey(modelData,root.actionTab)
@@ -514,17 +549,26 @@ Ui.Panel {
                                 anchors.left:parent.left;anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter
                                 anchors.leftMargin:Style.space(10);anchors.rightMargin:Style.space(10)
                                 spacing:Style.space(3)
+                                Row {
+                                    width:parent.width;spacing:Style.space(6)
+                                    Image {
+                                        visible:root.actionTab==="Plugins" && !!modelData.icon
+                                        width:visible?Style.space(16):0;height:width
+                                        source:visible?modelData.icon:""
+                                        fillMode:Image.PreserveAspectFit
+                                    }
+                                    Text {
+                                        width:parent.width-(root.actionTab==="Plugins" && !!modelData.icon ? Style.space(22) : 0)
+                                        text:modelData.name;textFormat:Text.PlainText;elide:Text.ElideRight
+                                        color:Color.foreground;font.family:Style.font.family;font.pixelSize:Style.font.body
+                                    }
+                                }
                                 Text {
                                     width:parent.width
-                                    text:modelData.trigger || modelData.command || ""
+                                    text:modelData.trigger || modelData.command || (root.actionTab==="Plugins" ? modelData.id : "") || ""
                                     textFormat:Text.PlainText;elide:Text.ElideRight
                                     color:Color.accent;font.family:Style.font.family
                                     font.pixelSize:Style.font.bodySmall;font.bold:true
-                                }
-                                Text {
-                                    width:parent.width;text:modelData.name
-                                    textFormat:Text.PlainText;elide:Text.ElideRight
-                                    color:Color.foreground;font.family:Style.font.family;font.pixelSize:Style.font.body
                                 }
                             }
                             onClicked:{actions.mouseSelecting=true;actions.currentIndex=index;actions.mouseSelecting=false;root.selectAction(modelData,root.actionTab,true)}
@@ -534,15 +578,15 @@ Ui.Panel {
                             color:Qt.darker(Color.foreground,1.5);font.family:Style.font.family;font.pixelSize:Style.font.bodySmall
                         }
                     }
-                    Item {visible:root.actionTab==="Command";Layout.fillHeight:true}
+                    Item {visible:root.actionTab==="Command" || (!!root.draft && !!root.draft.systemSource);Layout.fillHeight:true}
 
                     Ui.PanelSeparator {Layout.fillWidth:true;foreground:Color.foreground}
                     RowLayout {
                         Layout.fillWidth:true
                         Ui.Button {
                             visible:!!root.draft && root.configState.mappings.some(function(m){return m.id===root.draft.id})
-                            text:"Delete";focusable:true;enabled:!root.busy
-                            onClicked:{root.confirmKind="delete";root.confirmText="Delete this keybind? Its key combination will become available and any replaced binding will be restored."}
+                            text:root.draft && root.draft.systemSource ? "Restore" : "Delete";focusable:true;enabled:!root.busy
+                            onClicked:root.askRemove(root.draft)
                         }
                         Item {Layout.fillWidth:true}
                         Ui.Button {text:"Cancel";focusable:true;onClicked:{root.confirmKind="discard";root.confirmText="Discard the current edit?"}}

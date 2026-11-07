@@ -58,12 +58,26 @@ terceros al añadir un repositorio; si necesitas hacerlo manualmente, ejecuta
 
 1. Selecciona **Nuevo mapping**, escribe un nombre y pulsa **Capturar combinación**.
    También puedes escribir `F20`, `SUPER + V`, `XF86AudioPlay` o `code:191`.
-2. Elige **Aplicaciones**, **Comando**, **Omarchy**, **Hyprland** o **Aliases**.
+2. Elige **Aplicaciones**, **Comando**, **Omarchy**, **Plugins**, **Hyprland** o **Aliases**.
    Las aplicaciones se descubren desde los directorios XDG y se abren con
    `gio launch`, respetando los archivos `.desktop` (incluido su soporte DBus).
+   **Plugins** muestra los plugins habilitados con `kinds` panel, overlay o menu,
+   y los bar-widget cuya interfaz declara una función `open()` invocable.
+   Se muestran iconos cuando el plugin
+   incluye `icon.svg`, `icon.png` o `icon.webp` en su raíz o en `assets/`.
+   Al guardar se comprueba que sigan disponibles.
 3. Pulsa **Validar y guardar**. Si hay un conflicto se muestra la acción que ocupa
    la combinación antes de aplicar nada. Cancela, cambia la combinación o elige
    **Reemplazar explícitamente**.
+
+En **Sistema**, pulsa **Editar acción del sistema** para cambiar su combinación
+sin modificar la acción Lua original. El nombre y la acción permanecen fijos;
+solo se edita el atajo. Se crea un override gestionado: la combinación original
+queda libre mientras la edición esté activa. **Restaurar** devuelve la acción
+al atajo original (desactivar la edición también deja activo el original). Las ediciones anteriores conservan su acción
+guardada, aunque el selector de acción ya no aparece en este formulario.
+Si el origen cambia, la edición deja de aplicarse y debes actualizar el panel
+antes de revisarla. **Crear alias** sigue siendo una opción independiente.
 
 Para el portapapeles: crea un mapping F22, abre **Aliases**, busca `SUPER + V`
 y selecciona su acción efectiva. F22 y SUPER + V reutilizan el mismo callable
@@ -110,7 +124,7 @@ plugin. Los archivos de backup pueden contener tus comandos y rutas personales.
   ```
 
 - Una actualización que cambie la descripción/flags o elimine un origen deja su
-  alias sin aplicar y muestra un aviso. Los aliases siguen la acción del trigger
+  alias o edición del sistema sin aplicar y muestra un aviso. Los aliases siguen la acción del trigger
   de origen cuando este conserva su identidad; no son copias congeladas de código.
 - Los archivos son propiedad del usuario; no se escribe en `/usr/share/omarchy`.
   Las actualizaciones normales no los reemplazan. Si se reemplaza manualmente

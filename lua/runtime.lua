@@ -104,6 +104,15 @@ function M.finish(statePath, catalogPath, strict)
   for _, mapping in ipairs(state.mappings or {}) do
     if mapping.enabled then
       local actions, valid = {}, true
+      if mapping.systemSource then
+        local source = mapping.systemSource
+        local row = byId[source.id]
+        if not row or not row.supported or row.submap ~= '' or
+           row.signature ~= source.signature or row.name ~= mapping.name or
+           not mapping.replaces or mapping.replaces[source.id] ~= source.signature then
+          fail('System action changed or unavailable: ' .. mapping.name); valid=false
+        end
+      end
       if mapping.action.kind == 'alias' then
         local row = byId[mapping.action.source]
         if not row or not row.supported or row.signature ~= mapping.action.signature then
